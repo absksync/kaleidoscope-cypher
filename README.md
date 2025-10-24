@@ -2,14 +2,27 @@
 
 AI-powered collaborative platform to foster innovation by measuring and unlocking diversity of thought in teams. Features real-time idea diversity analytics, gamified collaboration, AI-generated creative prompts, mind map visualization, badges, and leaderboards.
 
+![Dashboard](https://github.com/user-attachments/assets/a9076eae-a019-433c-b43c-bf80d7f3324c)
+
 ## 🌟 Features
 
 - **Idea Submission**: Team members can submit ideas across multiple categories
-- **Real-time Diversity Analytics**: Track how diverse your team's thinking is in real-time
+- **Real-time Diversity Analytics**: Track how diverse your team's thinking is in real-time using entropy-based calculations
 - **AI-Generated Creative Prompts**: Get inspired with AI-powered creative thinking prompts
 - **Mind Map Visualization**: See connections between ideas and categories in an interactive mind map
 - **Gamification**: Earn badges and compete on leaderboards
 - **Real-time Updates**: WebSocket-powered real-time synchronization across all users
+
+## 🎨 Screenshots
+
+### Dashboard with Diversity Analytics
+![Dashboard](https://github.com/user-attachments/assets/a9076eae-a019-433c-b43c-bf80d7f3324c)
+
+### Submit Ideas
+![Submit Idea](https://github.com/user-attachments/assets/aa3f591f-8859-4dc0-8eb3-bcaabefd8362)
+
+### Badges System
+![Badges](https://github.com/user-attachments/assets/e13257b0-0db6-4073-8190-6c8278a76924)
 
 ## 🛠️ Tech Stack
 
@@ -26,9 +39,10 @@ AI-powered collaborative platform to foster innovation by measuring and unlockin
 ### Backend
 - **Flask** - Python web framework
 - **Flask-SocketIO** - Real-time WebSocket support
-- **SentenceTransformers** - Semantic similarity analysis for diversity calculation
-- **OpenAI API** - AI-generated creative prompts (optional)
-- **scikit-learn** - Machine learning utilities
+- **NumPy** - Numerical computations for diversity calculations
+- **SentenceTransformers** (Optional) - Semantic similarity analysis for advanced diversity calculation
+- **OpenAI API** (Optional) - AI-generated creative prompts
+- **scikit-learn** (Optional) - Machine learning utilities
 
 ## 📋 Prerequisites
 
@@ -45,24 +59,36 @@ AI-powered collaborative platform to foster innovation by measuring and unlockin
 cd backend
 ```
 
-2. Create a virtual environment:
+2. Run the setup script (recommended):
 ```bash
-python -m venv venv
+chmod +x setup.sh
+./setup.sh
+```
+
+Or manually:
+
+```bash
+# Create virtual environment
+python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install core dependencies
+pip install Flask flask-cors flask-socketio python-socketio python-engineio numpy
+
+# Optional: Install ML dependencies for advanced diversity analysis
+pip install sentence-transformers scikit-learn
+
+# Optional: Install OpenAI for AI-generated prompts
+pip install openai
 ```
 
-3. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-4. (Optional) Create a `.env` file for OpenAI integration:
+3. (Optional) Create a `.env` file for OpenAI integration:
 ```bash
 cp .env.example .env
 # Edit .env and add your OPENAI_API_KEY
 ```
 
-5. Run the Flask server:
+4. Run the Flask server:
 ```bash
 python app.py
 ```
@@ -118,11 +144,29 @@ The frontend will start on `http://localhost:5173`
 
 ## 📊 Diversity Calculation
 
-The platform uses **SentenceTransformers** to calculate semantic similarity between ideas:
+The platform uses two methods for calculating diversity:
+
+### Basic Method (Default)
+Uses **entropy-based calculation** on category distribution:
+- More categories = higher diversity
+- More even distribution = higher diversity
+- Score normalized to 0-100 scale
+
+### Advanced Method (Optional)
+Uses **SentenceTransformers** for semantic similarity:
 1. Ideas are encoded into vector embeddings
 2. Cosine similarity is calculated between all idea pairs
 3. Diversity score = (1 - average_similarity) × 100
 4. Higher scores indicate more diverse thinking
+
+To enable advanced diversity analysis:
+```bash
+cd backend
+source venv/bin/activate
+pip install sentence-transformers scikit-learn
+```
+
+Then uncomment the `calculate_diversity_score_ml()` function in `backend/app.py` and use it instead of `calculate_diversity_score_simple()`.
 
 ## 🔧 API Endpoints
 
@@ -136,6 +180,45 @@ The platform uses **SentenceTransformers** to calculate semantic similarity betw
 
 - `new_idea` - Broadcasted when a new idea is submitted
 - `diversity_update` - Broadcasted when diversity metrics change
+
+## 📁 Project Structure
+
+```
+kaleidoscope-cypher/
+├── backend/
+│   ├── app.py              # Flask application with API endpoints
+│   ├── requirements.txt    # Python dependencies
+│   ├── setup.sh           # Setup script
+│   └── .env.example       # Environment variables template
+├── frontend/
+│   ├── src/
+│   │   ├── components/    # React components
+│   │   │   ├── IdeaForm.jsx
+│   │   │   ├── DiversityAnalytics.jsx
+│   │   │   ├── MindMapVisualization.jsx
+│   │   │   ├── Leaderboard.jsx
+│   │   │   ├── AIPrompts.jsx
+│   │   │   └── Badges.jsx
+│   │   ├── App.jsx        # Main application component
+│   │   ├── store.js       # Zustand state management
+│   │   └── index.css      # Tailwind CSS
+│   ├── package.json
+│   └── .env.example
+└── README.md
+```
+
+## 🚀 Production Deployment
+
+### Backend
+- Use a production WSGI server like `gunicorn`
+- Set up a PostgreSQL or MongoDB database instead of in-memory storage
+- Configure CORS properly for your domain
+- Set up environment variables securely
+
+### Frontend
+- Build for production: `npm run build`
+- Deploy the `dist` folder to a static hosting service
+- Configure API URL to point to production backend
 
 ## 🤝 Contributing
 

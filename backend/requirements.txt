@@ -1,9 +1,16 @@
+# Core dependencies (required)
 Flask==3.0.0
 flask-cors==4.0.0
 flask-socketio==5.3.5
-sentence-transformers==2.2.2
-scikit-learn==1.3.2
-numpy==1.24.3
-openai==1.3.0
 python-socketio==5.10.0
 python-engineio==4.8.0
+numpy>=1.24.0
+
+# Optional: For advanced ML-based diversity analysis
+# Uncomment to enable semantic similarity-based diversity scoring
+# sentence-transformers==2.2.2
+# scikit-learn==1.3.2
+
+# Optional: For AI-generated creative prompts
+# Uncomment and add your OPENAI_API_KEY to .env
+# openai==1.3.0
