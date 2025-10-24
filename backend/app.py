@@ -50,8 +50,12 @@ def calculate_diversity_score_simple(ideas_list):
 def calculate_diversity_score_ml(ideas_list):
     """
     Advanced diversity calculation using SentenceTransformers
-    Uncomment and install sentence-transformers to use this function
+    This function is a placeholder. To use ML-based diversity:
+    1. Install: pip install sentence-transformers scikit-learn
+    2. Uncomment the code below
+    3. Replace calculate_diversity_score_simple() calls with this function
     """
+    # TODO: Uncomment and use this implementation when ML dependencies are installed
     # Requires: pip install sentence-transformers scikit-learn
     # from sentence_transformers import SentenceTransformer
     # from sklearn.metrics.pairwise import cosine_similarity
@@ -74,7 +78,9 @@ def calculate_diversity_score_ml(ideas_list):
     #     categories[category] = categories.get(category, 0) + 1
     # 
     # return max(0, min(100, diversity_score)), categories
-    pass
+    
+    # Fallback to simple method if ML dependencies not installed
+    return calculate_diversity_score_simple(ideas_list)
 
 def get_creative_prompts():
     """Generate creative thinking prompts"""
