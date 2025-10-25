@@ -194,7 +194,9 @@ def analyze_idea_diversity(idea_text):
         keyword_overlap = len(words.intersection(existing_words)) / len(words)
         keyword_diversity = 1.0 - keyword_overlap
     else:
-        keyword_diversity = 1.0
+        # If no existing ideas, calculate intrinsic keyword diversity
+        # Based on vocabulary richness
+        keyword_diversity = min(1.0, len(words) / 20.0)  # Normalize to 20 unique words
     
     # Combined diversity score (weighted)
     combined_diversity = (semantic_diversity * 0.7) + (keyword_diversity * 0.3)
@@ -205,6 +207,65 @@ def analyze_idea_diversity(idea_text):
         'combined_diversity': round(combined_diversity, 3),
         'diversity_level': 'High' if combined_diversity > 0.7 else 'Medium' if combined_diversity > 0.4 else 'Low'
     }
+
+
+def analyze_standalone_idea_diversity(idea_text):
+    """Analyze diversity of a single idea based on its intrinsic characteristics"""
+    text_lower = idea_text.lower()
+    words = re.findall(r'\w+', text_lower)
+    unique_words = set(words)
+    
+    # Domain detection based on keywords
+    domain_keywords = {
+        'technology': ['app', 'mobile', 'software', 'digital', 'ai', 'data', 'platform', 'tech', 'online', 'web', 'cloud', 'algorithm'],
+        'health': ['health', 'fitness', 'medical', 'wellness', 'therapy', 'exercise', 'nutrition', 'disease', 'treatment'],
+        'education': ['education', 'learning', 'teaching', 'student', 'course', 'training', 'knowledge', 'skill'],
+        'business': ['business', 'market', 'customer', 'revenue', 'sales', 'profit', 'service', 'company', 'enterprise'],
+        'social': ['social', 'community', 'people', 'network', 'collaboration', 'sharing', 'connect', 'friend'],
+        'environment': ['environment', 'sustainable', 'green', 'eco', 'energy', 'climate', 'recycling', 'conservation'],
+        'entertainment': ['game', 'entertainment', 'music', 'video', 'media', 'content', 'creative', 'art'],
+        'finance': ['finance', 'money', 'payment', 'banking', 'investment', 'cryptocurrency', 'wallet', 'transaction']
+    }
+    
+    # Count domains present
+    domains_found = []
+    for domain, keywords in domain_keywords.items():
+        if any(keyword in text_lower for keyword in keywords):
+            domains_found.append(domain)
+    
+    # Vocabulary richness (unique words / total words)
+    vocabulary_richness = len(unique_words) / max(len(words), 1)
+    
+    # Concept complexity (based on word length and unique concepts)
+    avg_word_length = sum(len(word) for word in unique_words) / max(len(unique_words), 1)
+    complexity_score = min(1.0, (avg_word_length / 8.0) * vocabulary_richness)
+    
+    # Domain diversity (how many different domains are touched)
+    domain_diversity = min(1.0, len(domains_found) / 3.0)  # Normalize to 3 domains
+    
+    # Semantic diversity based on embedding variance
+    embedding = create_simple_embedding(idea_text)
+    embedding_variance = np.var(embedding)
+    semantic_score = min(1.0, embedding_variance * 100)  # Scale variance
+    
+    # Combined score
+    combined_diversity = (
+        vocabulary_richness * 0.25 +
+        complexity_score * 0.25 +
+        domain_diversity * 0.30 +
+        semantic_score * 0.20
+    )
+    
+    return {
+        'semantic_diversity': round(semantic_score, 3),
+        'keyword_diversity': round(vocabulary_richness, 3),
+        'combined_diversity': round(combined_diversity, 3),
+        'diversity_level': 'High' if combined_diversity > 0.6 else 'Medium' if combined_diversity > 0.35 else 'Low',
+        'domains_detected': domains_found,
+        'vocabulary_richness': round(vocabulary_richness, 3),
+        'complexity_score': round(complexity_score, 3)
+    }
+
 
 # ===== STEP 5: RIGOROUS QUESTIONING & SWOT ANALYSIS =====
 
@@ -273,66 +334,216 @@ class SocraticQuestioningEngine:
         return questions
 
 class SWOTAnalysisEngine:
-    """Generates SWOT analysis for ideas"""
+    """Generates contextual SWOT analysis for ideas"""
     
     def analyze_idea(self, idea_text):
-        """Generate SWOT analysis based on idea content"""
+        """Generate detailed SWOT analysis based on idea content"""
         text = idea_text.lower()
+        words = set(re.findall(r'\w+', text))
         
-        # Pattern-based SWOT analysis
+        # Extract key concepts for contextual analysis
+        key_concepts = self._extract_key_concepts(idea_text)
+        industry = self._detect_industry(text)
+        
         strengths = []
         weaknesses = []
         opportunities = []
         threats = []
         
-        # Analyze strengths based on positive indicators
-        if any(word in text for word in ['innovative', 'unique', 'new', 'creative']):
-            strengths.append("Innovation advantage - novel approach to the problem")
-        if any(word in text for word in ['simple', 'easy', 'user-friendly']):
-            strengths.append("User accessibility - low barrier to adoption")
-        if any(word in text for word in ['efficient', 'fast', 'automated']):
-            strengths.append("Operational efficiency - streamlined processes")
+        # === CONTEXT-AWARE STRENGTHS ===
         
-        # Analyze potential weaknesses
-        if any(word in text for word in ['complex', 'complicated', 'advanced']):
-            weaknesses.append("Implementation complexity may slow development")
-        if 'expensive' in text or 'cost' in text:
-            weaknesses.append("Potential cost barriers for target users")
-        if any(word in text for word in ['niche', 'specific', 'specialized']):
-            weaknesses.append("Limited market reach due to specialization")
+        # Innovation & Technology
+        if any(word in text for word in ['ai', 'artificial intelligence', 'machine learning', 'blockchain']):
+            strengths.append(f"Leverages cutting-edge {key_concepts.get('tech', 'technology')} for competitive advantage")
+        if any(word in text for word in ['innovative', 'unique', 'novel', 'new approach']):
+            strengths.append(f"First-mover advantage in {industry} with innovative solution")
+        if any(word in text for word in ['platform', 'ecosystem', 'marketplace']):
+            strengths.append("Platform model enables network effects and scalability")
+            
+        # User Experience
+        if any(word in text for word in ['simple', 'easy', 'user-friendly', 'intuitive']):
+            strengths.append("Low learning curve accelerates user adoption")
+        if any(word in text for word in ['mobile', 'app', 'accessible']):
+            strengths.append("Mobile-first approach captures growing smartphone user base")
+        if any(word in text for word in ['personalized', 'customized', 'tailored']):
+            strengths.append("Personalization increases user engagement and retention")
+            
+        # Operational
+        if any(word in text for word in ['automated', 'automation', 'efficient']):
+            strengths.append("Automation reduces operational costs and human error")
+        if any(word in text for word in ['real-time', 'instant', 'live']):
+            strengths.append("Real-time capabilities provide immediate value to users")
+        if any(word in text for word in ['integration', 'integrated', 'connect']):
+            strengths.append("Integration with existing tools reduces friction in adoption")
+            
+        # Market Fit
+        if any(word in text for word in ['fitness', 'health', 'wellness', 'medical']):
+            strengths.append("Addresses growing health consciousness trend")
+        if any(word in text for word in ['education', 'learning', 'training']):
+            strengths.append("Taps into expanding online education market")
+        if any(word in text for word in ['sustainability', 'green', 'eco', 'environment']):
+            strengths.append("Aligns with increasing consumer demand for sustainable solutions")
         
-        # Identify opportunities
-        if any(word in text for word in ['scalable', 'global', 'network']):
-            opportunities.append("Global scaling potential with network effects")
-        if any(word in text for word in ['partnership', 'collaborate', 'integrate']):
-            opportunities.append("Strategic partnerships to enhance value proposition")
+        # === CONTEXT-AWARE WEAKNESSES ===
+        
+        # Technical Challenges
+        if any(word in text for word in ['ai', 'machine learning', 'algorithm']):
+            weaknesses.append("Requires significant AI/ML expertise and continuous model training")
+        if any(word in text for word in ['blockchain', 'decentralized', 'distributed']):
+            weaknesses.append("Blockchain complexity may limit mainstream adoption")
+        if any(word in text for word in ['complex', 'comprehensive', 'advanced']):
+            weaknesses.append("Implementation complexity could extend development timeline")
+        if any(word in text for word in ['integration', 'connect', 'api']):
+            weaknesses.append("Dependency on third-party integrations creates technical risks")
+            
+        # Resource Requirements
+        if any(word in text for word in ['platform', 'marketplace', 'network']):
+            weaknesses.append("Two-sided platform requires critical mass for viability")
         if any(word in text for word in ['data', 'analytics', 'insights']):
-            opportunities.append("Data monetization and insights generation")
+            weaknesses.append("Data acquisition and quality maintenance requires ongoing investment")
+        if 'subscription' in text or 'premium' in text:
+            weaknesses.append("Subscription fatigue may limit user willingness to pay")
+            
+        # Market Challenges
+        if any(word in text for word in ['b2b', 'enterprise', 'business']):
+            weaknesses.append("B2B sales cycles are longer and require more resources")
+        if any(word in text for word in ['niche', 'specific', 'specialized']):
+            weaknesses.append("Narrow market focus limits addressable market size")
+        if len(words) < 10:
+            weaknesses.append("Concept needs further refinement and detailed feature planning")
         
-        # Identify threats
-        if any(word in text for word in ['competition', 'existing', 'similar']):
-            threats.append("Established competitors with market presence")
-        if any(word in text for word in ['regulation', 'legal', 'compliance']):
-            threats.append("Regulatory changes could impact operations")
-        if any(word in text for word in ['technology', 'tech', 'digital']):
-            threats.append("Rapid technological change may obsolete solution")
+        # === CONTEXT-AWARE OPPORTUNITIES ===
         
-        # Ensure each category has at least one item
+        # Market Growth
+        if any(word in text for word in ['mobile', 'app']):
+            opportunities.append(f"Mobile market growth in {industry} projected at 15-20% annually")
+        if any(word in text for word in ['ai', 'automation', 'smart']):
+            opportunities.append("Rising AI adoption creates favorable market conditions")
+        if any(word in text for word in ['remote', 'virtual', 'online']):
+            opportunities.append("Remote work trend expands addressable market globally")
+            
+        # Expansion Potential
+        if any(word in text for word in ['platform', 'marketplace']):
+            opportunities.append("Platform can expand into adjacent verticals and services")
+        if any(word in text for word in ['data', 'analytics']):
+            opportunities.append("Collected data enables new revenue streams through insights")
+        if any(word in text for word in ['social', 'community', 'network']):
+            opportunities.append("Community features can drive viral growth")
+            
+        # Partnerships
+        if any(word in text for word in ['integration', 'connect', 'partner']):
+            opportunities.append("Strategic partnerships with established players for distribution")
+        if any(word in text for word in ['b2b', 'enterprise']):
+            opportunities.append("Enterprise contracts provide stable recurring revenue")
+        if any(word in text for word in ['api', 'developer', 'open']):
+            opportunities.append("Developer ecosystem can accelerate innovation")
+            
+        # Global & Trends
+        if any(word in text for word in ['global', 'international', 'worldwide']):
+            opportunities.append("Geographic expansion into emerging markets")
+        if any(word in text for word in ['sustainable', 'green', 'eco']):
+            opportunities.append("ESG investing trend attracts impact-focused investors")
+        
+        # === CONTEXT-AWARE THREATS ===
+        
+        # Competition
+        if any(word in text for word in ['mobile', 'app']):
+            threats.append(f"Saturated {industry} app market with high user acquisition costs")
+        if any(word in text for word in ['platform', 'marketplace']):
+            threats.append("Tech giants may enter market with superior resources")
+        if any(word in text for word in ['fitness', 'health']):
+            threats.append("Established players like Apple Health and Fitbit dominate market")
+        if any(word in text for word in ['todo', 'task', 'productivity']):
+            threats.append("Intense competition from free alternatives (Todoist, Notion, etc.)")
+            
+        # Technology
+        if any(word in text for word in ['ai', 'machine learning']):
+            threats.append("Rapid AI advancement may obsolete current approach")
+        if any(word in text for word in ['blockchain', 'crypto', 'decentralized']):
+            threats.append("Regulatory uncertainty around blockchain/crypto technologies")
+        if any(word in text for word in ['technology', 'digital', 'software']):
+            threats.append("Fast-paced technology changes require continuous innovation")
+            
+        # Regulatory & Privacy
+        if any(word in text for word in ['data', 'personal', 'user information']):
+            threats.append("Stricter data privacy regulations (GDPR, CCPA) increase compliance costs")
+        if any(word in text for word in ['health', 'medical', 'healthcare']):
+            threats.append("Healthcare regulations (HIPAA) add complexity and costs")
+        if any(word in text for word in ['financial', 'payment', 'money']):
+            threats.append("Financial regulations require licensing and compliance infrastructure")
+            
+        # Market Dynamics
+        if any(word in text for word in ['subscription', 'saas', 'recurring']):
+            threats.append("Economic downturn may increase subscription churn rates")
+        if any(word in text for word in ['b2b', 'enterprise']):
+            threats.append("Enterprise budget cuts during economic uncertainty")
+        
+        # === FALLBACK ITEMS (ensure minimum coverage) ===
+        
         if not strengths:
-            strengths.append("Addresses a real user need in the market")
+            strengths.append(f"Addresses genuine need in {industry} market")
+            strengths.append("Clear value proposition for target users")
+        elif len(strengths) < 2:
+            strengths.append("Potential for strong user engagement and retention")
+            
         if not weaknesses:
-            weaknesses.append("Execution risk in translating concept to reality")
+            weaknesses.append("Requires substantial initial investment in development")
+            weaknesses.append("User acquisition in competitive market poses challenges")
+        elif len(weaknesses) < 2:
+            weaknesses.append("Building brand awareness requires significant marketing budget")
+            
         if not opportunities:
-            opportunities.append("Market expansion as user base grows")
+            opportunities.append(f"Growing demand in {industry} sector")
+            opportunities.append("Potential for geographic and demographic expansion")
+        elif len(opportunities) < 2:
+            opportunities.append("Strategic partnerships could accelerate growth")
+            
         if not threats:
-            threats.append("New entrants with better resources or technology")
+            threats.append("Well-funded competitors may replicate features quickly")
+            threats.append("Changing user preferences require continuous adaptation")
+        elif len(threats) < 2:
+            threats.append("Market saturation may limit growth potential")
         
         return {
-            'strengths': strengths,
-            'weaknesses': weaknesses, 
-            'opportunities': opportunities,
-            'threats': threats
+            'strengths': strengths[:4],  # Limit to top 4 per category
+            'weaknesses': weaknesses[:4],
+            'opportunities': opportunities[:4],
+            'threats': threats[:4]
         }
+    
+    def _extract_key_concepts(self, text):
+        """Extract key concepts from idea text"""
+        concepts = {}
+        text_lower = text.lower()
+        
+        # Technology concepts
+        tech_words = ['ai', 'blockchain', 'machine learning', 'platform', 'app', 'software']
+        for tech in tech_words:
+            if tech in text_lower:
+                concepts['tech'] = tech
+                break
+        
+        return concepts
+    
+    def _detect_industry(self, text):
+        """Detect the primary industry/domain"""
+        industries = {
+            'health & wellness': ['health', 'fitness', 'wellness', 'medical', 'therapy'],
+            'education': ['education', 'learning', 'teaching', 'training', 'course'],
+            'fintech': ['finance', 'payment', 'banking', 'crypto', 'investment'],
+            'e-commerce': ['marketplace', 'shopping', 'retail', 'store', 'commerce'],
+            'productivity': ['productivity', 'task', 'todo', 'project management'],
+            'social': ['social', 'community', 'network', 'connect', 'chat'],
+            'enterprise': ['enterprise', 'b2b', 'business', 'corporate'],
+            'consumer tech': ['mobile', 'app', 'consumer', 'user']
+        }
+        
+        for industry, keywords in industries.items():
+            if any(keyword in text for keyword in keywords):
+                return industry
+        
+        return 'technology'
+
 
 # ===== STEP 6: CONVERSATIONAL AI WITH MEMORY =====
 
@@ -1240,21 +1451,22 @@ class ConversationRouter:
         # Extract the idea from the message
         idea_text = message
         
-        # Add idea to storage
+        # Analyze diversity first
+        diversity_analysis = analyze_idea_diversity(idea_text)
+        
+        # Add idea to storage with diversity score
         idea_data = {
             'id': len(ideas),
             'idea_text': idea_text,
             'timestamp': datetime.now().isoformat(),
-            'user_id': user_id
+            'user_id': user_id,
+            'diversity_score': diversity_analysis['combined_diversity']
         }
         ideas.append(idea_data)
         
         # Create embedding
         embedding = create_simple_embedding(idea_text)
         embeddings.append(embedding)
-        
-        # Analyze diversity
-        diversity_analysis = analyze_idea_diversity(idea_text)
         
         # Generate questions
         questions = self.questioning_engine.generate_questions(idea_text)
@@ -1840,12 +2052,46 @@ def submit_idea():
         # Process as idea submission through router
         result = router._handle_idea_submission(idea_text, user_id)
         
+        # Convert numpy types to Python types for JSON serialization
+        def convert_numpy(obj):
+            if isinstance(obj, dict):
+                return {k: convert_numpy(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [convert_numpy(item) for item in obj]
+            elif hasattr(obj, 'item'):  # numpy scalar
+                return obj.item()
+            elif hasattr(obj, 'tolist'):  # numpy array
+                return obj.tolist()
+            else:
+                return obj
+        
+        serializable_result = convert_numpy(result)
+        
         return jsonify({
             "message": "Idea submitted and analyzed successfully!",
-            "idea_id": result['idea_id'],
-            "analysis": result
+            "idea_id": serializable_result.get('idea_id'),
+            "analysis": serializable_result
         })
         
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/ideas', methods=['GET'])
+def get_all_ideas():
+    """Get all submitted ideas"""
+    try:
+        # Convert numpy types to Python types for JSON serialization
+        serializable_ideas = []
+        for idea in ideas:
+            serializable_idea = idea.copy()
+            if 'diversity_score' in serializable_idea:
+                serializable_idea['diversity_score'] = float(serializable_idea['diversity_score'])
+            serializable_ideas.append(serializable_idea)
+        
+        return jsonify({
+            "ideas": serializable_ideas,
+            "total": len(serializable_ideas)
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
@@ -1899,6 +2145,53 @@ def reset_conversation(user_id):
         "message": f"Conversation history cleared for {user_id}",
         "status": "reset_complete"
     })
+
+@app.route('/analyze_swot', methods=['POST'])
+def analyze_swot():
+    """Dedicated SWOT analysis endpoint"""
+    try:
+        data = request.get_json()
+        
+        if not data or 'idea_text' not in data:
+            return jsonify({"error": "idea_text is required"}), 400
+        
+        idea_text = data['idea_text'].strip()
+        
+        if not idea_text:
+            return jsonify({"error": "idea_text cannot be empty"}), 400
+        
+        # Initialize SWOT engine
+        swot_engine = SWOTAnalysisEngine()
+        questioning_engine = SocraticQuestioningEngine()
+        
+        # Generate SWOT analysis
+        swot = swot_engine.analyze_idea(idea_text)
+        
+        # Generate strategic questions
+        questions = questioning_engine.generate_questions(idea_text, 5)
+        
+        # Analyze diversity for additional context (use standalone analysis)
+        diversity = analyze_standalone_idea_diversity(idea_text)
+        
+        return jsonify({
+            "success": True,
+            "idea_text": idea_text,
+            "swot": swot,
+            "strategic_questions": questions,
+            "diversity_metrics": {
+                "semantic_diversity": diversity['semantic_diversity'],
+                "keyword_diversity": diversity['keyword_diversity'],
+                "combined_diversity": diversity['combined_diversity'],
+                "diversity_level": diversity['diversity_level'],
+                "domains_detected": diversity.get('domains_detected', []),
+                "vocabulary_richness": diversity.get('vocabulary_richness', 0),
+                "complexity_score": diversity.get('complexity_score', 0)
+            },
+            "timestamp": datetime.utcnow().isoformat()
+        })
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/system_stats', methods=['GET'])
 def system_stats():

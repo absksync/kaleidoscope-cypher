@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import ApiService from '../services/api';
+import EnhancedApiService from '../services/enhancedApi';
 
 const IdeaVariationGenerator = () => {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
@@ -7,9 +7,19 @@ const IdeaVariationGenerator = () => {
   const [loading, setLoading] = useState(false);
   const [variations, setVariations] = useState(null);
   const [error, setError] = useState('');
+  const [backendStatus, setBackendStatus] = useState('checking');
 
   const handleMouseMove = (e) => {
     setMousePosition({ x: e.clientX, y: e.clientY });
+  };
+
+  const checkBackend = async () => {
+    try {
+      const health = await EnhancedApiService.healthCheck();
+      setBackendStatus(health ? 'connected' : 'offline');
+    } catch (error) {
+      setBackendStatus('offline');
+    }
   };
 
   const handleGenerateVariations = async () => {
@@ -23,14 +33,19 @@ const IdeaVariationGenerator = () => {
     setVariations(null);
 
     try {
-      const result = await ApiService.generateIdeaVariations(ideaText);
+      const result = await EnhancedApiService.generateIdeaVariations(ideaText);
       setVariations(result);
     } catch (err) {
-      setError(err.message || 'Failed to generate variations. Make sure the backend is running.');
+      setError(err.message || 'Failed to generate variations. Make sure backend (Port 5000) is running.');
     } finally {
       setLoading(false);
     }
   };
+
+  // Check backend on mount
+  useState(() => {
+    checkBackend();
+  }, []);
 
   return (
     <div className="min-h-screen relative overflow-hidden" onMouseMove={handleMouseMove}>

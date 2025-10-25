@@ -255,6 +255,126 @@ class EnhancedApiService {
     }
   }
 
+  /**
+   * Analyze idea with SWOT framework
+   */
+  static async analyzeSWOT(ideaText) {
+    try {
+      const response = await fetch(`${AI_API_BASE_URL}/analyze_swot`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          idea_text: ideaText,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to analyze SWOT');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error analyzing SWOT:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all ideas from AI backend
+   */
+  static async getIdeas() {
+    try {
+      const response = await fetch(`${AI_API_BASE_URL}/ideas`);
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to get ideas');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error getting ideas:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate Socratic questions for an idea (AI Backend)
+   */
+  static async generateSocraticQuestions(ideaText, numQuestions = 3) {
+    try {
+      const response = await fetch(`${AI_API_BASE_URL}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: `Generate ${numQuestions} Socratic questions for this idea: ${ideaText}`,
+          user_id: 'api_user',
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to generate questions');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error generating Socratic questions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get real-time active users count (Basic Backend - MongoDB)
+   */
+  static async getActiveUsers() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/health`);
+      const data = await response.json();
+      return data.active_users || 0;
+    } catch (error) {
+      console.error('Error getting active users:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Submit idea to basic backend (MongoDB persistence)
+   */
+  static async submitIdeaToMongoDB(ideaText, username) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/submit_idea`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          idea_text: ideaText,
+          username: username,
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to submit idea');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error submitting idea to MongoDB:', error);
+      throw error;
+    }
+  }
+
   // ===== UTILITY METHODS =====
 
   /**

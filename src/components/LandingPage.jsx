@@ -13,6 +13,8 @@ const LandingPage = () => {
   const [diversityMetrics, setDiversityMetrics] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [backendStatus, setBackendStatus] = useState('checking');
+  const [variations, setVariations] = useState(null);
+  const [showVariations, setShowVariations] = useState(false);
   const dropdownRef = useRef(null);
   const solutionsDropdownRef = useRef(null);
 
@@ -68,10 +70,20 @@ const LandingPage = () => {
 
     const username = user?.username || user?.firstName || 'Anonymous';
     setSubmitting(true);
+    setVariations(null);
+    setShowVariations(false);
 
     try {
+      // Submit idea and generate variations
       await ApiService.submitIdea(ideaText, username);
-      setIdeaText(''); // Clear input after successful submission
+      
+      // Generate variations
+      const result = await ApiService.generateIdeaVariations(ideaText);
+      setVariations(result);
+      setShowVariations(true);
+      
+      // Don't clear input so user can see what they submitted
+      // setIdeaText('');
     } catch (error) {
       alert('Failed to submit idea: ' + error.message);
     } finally {
@@ -267,12 +279,12 @@ const LandingPage = () => {
                           </div>
                         </a>
                         
-                        <a href="/swot-evaluation" className="block p-4 hover:bg-blue-500/10 rounded-xl transition-all duration-200 cursor-pointer group border border-transparent hover:border-blue-500/30">
+                        <a href="/swot-analyzer" className="block p-4 hover:bg-blue-500/10 rounded-xl transition-all duration-200 cursor-pointer group border border-transparent hover:border-blue-500/30">
                           <div className="flex items-start gap-3">
                             <div className="text-2xl group-hover:scale-110 transition-transform duration-300">📊</div>
                             <div>
-                              <h4 className="text-white font-bold text-sm mb-1">SWOT Evaluation</h4>
-                              <p className="text-gray-300 text-xs">Analyze strengths & weaknesses</p>
+                              <h4 className="text-white font-bold text-sm mb-1">SWOT Analyzer</h4>
+                              <p className="text-gray-300 text-xs">AI-powered strategic analysis</p>
                             </div>
                           </div>
                         </a>
@@ -375,10 +387,66 @@ const LandingPage = () => {
                   disabled={backendStatus !== 'connected' || submitting || !ideaText.trim()}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-semibold text-base transition-all duration-300 transform hover:scale-105 shadow-xl shadow-blue-500/30 border border-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {submitting ? 'Submitting...' : 'Submit Idea'}
+                  {submitting ? 'Generating Variations...' : 'Generate Variations'}
                 </button>
               </div>
             </div>
+
+            {/* AI-Generated Variations Display */}
+            {showVariations && variations && (
+              <div className="mt-6 bg-black/80 backdrop-blur-xl border border-blue-500/30 rounded-3xl p-6 animate-fadeIn">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-white text-lg font-semibold">🎨 AI-Generated Variations</h3>
+                  <button
+                    onClick={() => {
+                      setShowVariations(false);
+                      setVariations(null);
+                      setIdeaText('');
+                    }}
+                    className="text-gray-400 hover:text-white text-sm transition-colors"
+                  >
+                    Clear
+                  </button>
+                </div>
+
+                {/* Method Info */}
+                <div className="mb-4 bg-purple-500/10 border border-purple-500/30 rounded-xl p-3">
+                  <p className="text-gray-400 text-sm">
+                    Method: <span className="text-purple-400 font-semibold">{variations.method_used}</span> - {variations.description}
+                  </p>
+                </div>
+
+                {/* Original Idea */}
+                <div className="mb-4 bg-blue-500/10 border border-blue-500/30 rounded-xl p-4">
+                  <div className="text-blue-400 text-sm font-semibold mb-2">Original Idea:</div>
+                  <p className="text-white text-sm">{variations.original_idea}</p>
+                </div>
+
+                {/* Variations List */}
+                <div className="space-y-4">
+                  {variations.generated_ideas?.map((variation, index) => (
+                    <div
+                      key={index}
+                      className="bg-gradient-to-br from-blue-500/10 to-cyan-500/10 border border-blue-500/20 rounded-xl p-4 hover:border-blue-500/40 transition-all duration-300 hover:scale-[1.02]"
+                    >
+                      <div className="flex items-start gap-3 mb-3">
+                        <div className="bg-blue-500/20 text-blue-400 rounded-lg w-8 h-8 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                          {index + 1}
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-blue-400 text-xs font-semibold mb-2">
+                            {variation.technique}
+                            {variation.stimulus && ` (${variation.stimulus})`}
+                          </div>
+                          <p className="text-white text-sm leading-relaxed mb-2">{variation.variation_text}</p>
+                          <p className="text-gray-400 text-xs italic">{variation.reasoning}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Live Ideas Feed */}
             {ideas.length > 0 && (
@@ -406,7 +474,7 @@ const LandingPage = () => {
       {/* Features Grid Section */}
       <section className="container mx-auto px-6 py-20">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 transition-all duration-500 hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-blue-400 hover:via-cyan-400 hover:to-blue-400 hover:scale-105 cursor-pointer">
             Explore Our Features
           </h2>
           <p className="text-gray-400 text-base">
@@ -499,11 +567,11 @@ const LandingPage = () => {
             </div>
           </a>
 
-          {/* SWOT Evaluation Card */}
-          <a href="/swot-evaluation" className="group relative bg-gradient-to-br from-green-900/20 to-green-950/20 border border-green-500/30 rounded-2xl p-6 hover:border-green-500/60 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-green-500/20">
+          {/* SWOT Analyzer Card */}
+          <a href="/swot-analyzer" className="group relative bg-gradient-to-br from-green-900/20 to-green-950/20 border border-green-500/30 rounded-2xl p-6 hover:border-green-500/60 transition-all duration-300 hover:scale-105 hover:shadow-2xl hover:shadow-green-500/20">
             <div className="absolute top-5 right-5">
               <span className="bg-green-500/20 text-green-400 text-xs font-semibold px-3 py-1.5 rounded-full border border-green-500/30">
-                Solution
+                AI-Powered
               </span>
             </div>
             <div className="mb-4">
@@ -511,12 +579,12 @@ const LandingPage = () => {
                 <span className="text-3xl">📊</span>
               </div>
             </div>
-            <h3 className="text-white font-bold text-lg mb-2">SWOT Evaluation</h3>
+            <h3 className="text-white font-bold text-lg mb-2">SWOT Analyzer</h3>
             <p className="text-gray-400 text-sm mb-4">
-              Analyze strengths, weaknesses, opportunities, and threats
+              AI-powered strategic analysis with diversity metrics and insights
             </p>
             <div className="flex items-center text-green-400 text-base font-semibold">
-              View Details <span className="ml-1">→</span>
+              Analyze Now <span className="ml-1">→</span>
             </div>
           </a>
         </div>
@@ -525,7 +593,7 @@ const LandingPage = () => {
       {/* Testimonials & Ratings Section */}
       <section className="container mx-auto px-6 py-20">
         <div className="text-center mb-12">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+          <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 transition-all duration-500 hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-blue-400 hover:via-cyan-400 hover:to-blue-400 hover:scale-105 cursor-pointer">
             What Our Users Say
           </h2>
           <p className="text-gray-400 text-base">
@@ -652,7 +720,7 @@ const LandingPage = () => {
               <span className="text-yellow-400 text-sm">★★★★★</span>
             </div>
             <p className="text-gray-300 text-xs leading-relaxed">
-              "SWOT Evaluation feature streamlined our strategic analysis. What used to take days now takes hours, with better insights and clearer action items."
+              "SWOT Analyzer feature streamlined our strategic analysis with AI-powered insights. What used to take days now takes minutes, with better context and clearer action items."
             </p>
           </div>
 
