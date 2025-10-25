@@ -1,10 +1,35 @@
 import { useState } from 'react';
+import ApiService from '../services/api';
 
 const IdeaVariationGenerator = () => {
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [ideaText, setIdeaText] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [variations, setVariations] = useState(null);
+  const [error, setError] = useState('');
 
   const handleMouseMove = (e) => {
     setMousePosition({ x: e.clientX, y: e.clientY });
+  };
+
+  const handleGenerateVariations = async () => {
+    if (!ideaText.trim()) {
+      setError('Please enter an idea first');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setVariations(null);
+
+    try {
+      const result = await ApiService.generateIdeaVariations(ideaText);
+      setVariations(result);
+    } catch (err) {
+      setError(err.message || 'Failed to generate variations. Make sure the backend is running.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -118,111 +143,60 @@ const IdeaVariationGenerator = () => {
               <textarea 
                 className="w-full bg-black/50 border border-blue-500/30 rounded-xl p-4 text-white text-base resize-none focus:outline-none focus:border-blue-500 transition-colors h-32 mb-4"
                 placeholder="Describe your initial idea here... (e.g., 'A mobile app for tracking daily habits')"
+                value={ideaText}
+                onChange={(e) => setIdeaText(e.target.value)}
               ></textarea>
               
-              <div className="grid md:grid-cols-3 gap-4 mb-4">
-                <div>
-                  <label className="text-gray-400 text-sm mb-2 block">Creativity Level</label>
-                  <select className="w-full bg-black/50 border border-blue-500/30 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-blue-500">
-                    <option>Conservative</option>
-                    <option selected>Balanced</option>
-                    <option>Wild</option>
-                  </select>
+              {error && (
+                <div className="mb-4 bg-red-500/20 border border-red-500/50 rounded-xl p-3 text-red-300 text-sm">
+                  {error}
                 </div>
-                <div>
-                  <label className="text-gray-400 text-sm mb-2 block">Number of Variations</label>
-                  <select className="w-full bg-black/50 border border-blue-500/30 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-blue-500">
-                    <option>3</option>
-                    <option selected>5</option>
-                    <option>10</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-gray-400 text-sm mb-2 block">Perspective</label>
-                  <select className="w-full bg-black/50 border border-blue-500/30 rounded-xl p-3 text-white text-sm focus:outline-none focus:border-blue-500">
-                    <option>User-Centric</option>
-                    <option>Business-Focused</option>
-                    <option selected>Technical</option>
-                    <option>Creative</option>
-                  </select>
-                </div>
-              </div>
+              )}
 
-              <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold text-base transition-all duration-300 border border-blue-500/50">
-                Generate Variations
+              <button 
+                onClick={handleGenerateVariations}
+                disabled={loading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-xl font-semibold text-base transition-all duration-300 border border-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading ? 'Generating Variations...' : 'Generate Variations'}
               </button>
             </div>
 
             {/* Generated Variations */}
-            <div className="bg-black/80 backdrop-blur-xl border border-blue-500/30 rounded-2xl p-6">
-              <h3 className="text-white text-lg font-semibold mb-4">Generated Variations</h3>
-              <div className="space-y-4">
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-blue-400 text-xs font-semibold">VARIATION 1 - User-Centric Approach</span>
-                    <div className="flex gap-2">
-                      <button className="text-xs text-gray-400 hover:text-white">Save</button>
-                      <button className="text-xs text-gray-400 hover:text-white">Expand</button>
+            {variations && (
+              <div className="bg-black/80 backdrop-blur-xl border border-blue-500/30 rounded-2xl p-6">
+                <h3 className="text-white text-lg font-semibold mb-2">Generated Variations</h3>
+                <p className="text-gray-400 text-sm mb-4">
+                  Method: <span className="text-blue-400 font-semibold">{variations.method_used}</span> - {variations.description}
+                </p>
+                <div className="space-y-4">
+                  {variations.generated_ideas.map((variation, index) => (
+                    <div key={index} className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-blue-400 text-xs font-semibold">
+                          VARIATION {index + 1} - {variation.technique}
+                          {variation.stimulus && ` (${variation.stimulus})`}
+                        </span>
+                      </div>
+                      <p className="text-white text-sm mb-3">
+                        {variation.variation_text}
+                      </p>
+                      <p className="text-gray-400 text-xs italic">
+                        {variation.reasoning}
+                      </p>
                     </div>
-                  </div>
-                  <p className="text-white text-sm">
-                    A gamified habit tracker that uses social accountability features, allowing users to join habit-building communities and compete on leaderboards while earning rewards for consistency.
-                  </p>
-                </div>
-
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-blue-400 text-xs font-semibold">VARIATION 2 - Minimalist Design</span>
-                    <div className="flex gap-2">
-                      <button className="text-xs text-gray-400 hover:text-white">Save</button>
-                      <button className="text-xs text-gray-400 hover:text-white">Expand</button>
-                    </div>
-                  </div>
-                  <p className="text-white text-sm">
-                    An ultra-simple habit tracker focused on streak visualization, with a clean interface that shows only your current streaks and a calendar view with color-coded success markers.
-                  </p>
-                </div>
-
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-blue-400 text-xs font-semibold">VARIATION 3 - AI-Powered Assistant</span>
-                    <div className="flex gap-2">
-                      <button className="text-xs text-gray-400 hover:text-white">Save</button>
-                      <button className="text-xs text-gray-400 hover:text-white">Expand</button>
-                    </div>
-                  </div>
-                  <p className="text-white text-sm">
-                    A smart habit coach app that uses machine learning to identify optimal times for habit execution, sends personalized motivational messages, and adapts difficulty based on success patterns.
-                  </p>
-                </div>
-
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-blue-400 text-xs font-semibold">VARIATION 4 - Wearable Integration</span>
-                    <div className="flex gap-2">
-                      <button className="text-xs text-gray-400 hover:text-white">Save</button>
-                      <button className="text-xs text-gray-400 hover:text-white">Expand</button>
-                    </div>
-                  </div>
-                  <p className="text-white text-sm">
-                    A habit tracking system that integrates with smartwatches and fitness bands, automatically detecting certain habits (like exercise, sleep) and using biometric data to suggest optimal habit timing.
-                  </p>
-                </div>
-
-                <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-5">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-blue-400 text-xs font-semibold">VARIATION 5 - Collaborative Habits</span>
-                    <div className="flex gap-2">
-                      <button className="text-xs text-gray-400 hover:text-white">Save</button>
-                      <button className="text-xs text-gray-400 hover:text-white">Expand</button>
-                    </div>
-                  </div>
-                  <p className="text-white text-sm">
-                    A family/team-oriented habit tracker where groups can create shared habits, track collective progress, and celebrate milestones together with synchronized notifications and group challenges.
-                  </p>
+                  ))}
                 </div>
               </div>
-            </div>
+            )}
+
+            {!variations && !loading && (
+              <div className="bg-black/80 backdrop-blur-xl border border-blue-500/30 rounded-2xl p-6 text-center">
+                <p className="text-gray-400 text-sm">
+                  Enter an idea above and click "Generate Variations" to get started
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

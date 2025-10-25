@@ -1,12 +1,83 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react';
+import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from '@clerk/clerk-react';
+import ApiService from '../services/api';
+import wsService from '../services/websocket';
 
 const LandingPage = () => {
+  const { user } = useUser();
   const [showProductDropdown, setShowProductDropdown] = useState(false);
   const [showSolutionsDropdown, setShowSolutionsDropdown] = useState(false);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [ideaText, setIdeaText] = useState('');
+  const [ideas, setIdeas] = useState([]);
+  const [diversityMetrics, setDiversityMetrics] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [backendStatus, setBackendStatus] = useState('checking');
   const dropdownRef = useRef(null);
   const solutionsDropdownRef = useRef(null);
+
+  // Check backend health on mount
+  useEffect(() => {
+    const checkBackend = async () => {
+      try {
+        const health = await ApiService.healthCheck();
+        setBackendStatus('connected');
+        console.log('Backend health:', health);
+      } catch (error) {
+        setBackendStatus('disconnected');
+        console.error('Backend not available:', error);
+      }
+    };
+    checkBackend();
+  }, []);
+
+  // Setup WebSocket connection
+  useEffect(() => {
+    if (user && backendStatus === 'connected') {
+      const username = user.username || user.firstName || 'Anonymous';
+      wsService.connect(username);
+
+      // Listen for initial state
+      wsService.on('initialState', (data) => {
+        setIdeas(data.ideas || []);
+        setDiversityMetrics(data.diversity_metrics);
+      });
+
+      // Listen for new ideas
+      wsService.on('newIdea', (data) => {
+        setIdeas(prev => [data.idea, ...prev]);
+        setDiversityMetrics(data.diversity_metrics);
+      });
+
+      return () => {
+        wsService.disconnect();
+      };
+    }
+  }, [user, backendStatus]);
+
+  const handleSubmitIdea = async () => {
+    if (!ideaText.trim()) {
+      alert('Please enter an idea first');
+      return;
+    }
+
+    if (backendStatus !== 'connected') {
+      alert('Backend is not connected. Please ensure the backend server is running.');
+      return;
+    }
+
+    const username = user?.username || user?.firstName || 'Anonymous';
+    setSubmitting(true);
+
+    try {
+      await ApiService.submitIdea(ideaText, username);
+      setIdeaText(''); // Clear input after successful submission
+    } catch (error) {
+      alert('Failed to submit idea: ' + error.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleMouseMove = (e) => {
     setMousePosition({ x: e.clientX, y: e.clientY });
@@ -256,23 +327,73 @@ const LandingPage = () => {
             </button>
           </div>
 
-          {/* AI Input Section (Chat Box) */}
+          {/* AI Input Section (Chat Box) - Now Connected to Backend */}
           <div className="max-w-[90%] mx-auto mt-8">
             <div className="bg-black/80 backdrop-blur-xl border border-blue-500/30 rounded-3xl p-4 shadow-2xl shadow-blue-500/20 transition-all duration-500">
+              {/* Backend Status Indicator */}
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${backendStatus === 'connected' ? 'bg-green-500' : backendStatus === 'checking' ? 'bg-yellow-500' : 'bg-red-500'}`}></div>
+                  <span className="text-xs text-gray-400">
+                    {backendStatus === 'connected' ? 'Backend Connected' : backendStatus === 'checking' ? 'Checking...' : 'Backend Offline - Start backend server'}
+                  </span>
+                </div>
+                {diversityMetrics && (
+                  <div className="text-xs text-gray-400">
+                    Ideas: {diversityMetrics.fluency} | Originality: {(diversityMetrics.originality * 100).toFixed(0)}%
+                  </div>
+                )}
+              </div>
+
               <div className="mb-3">
                 <textarea
                   rows="3"
-                  placeholder="Create a presentation outlining project goals, challenges, and success metrics..."
+                  placeholder="Share your brainstorming idea here... (e.g., 'A mobile app that helps people find local volunteering opportunities')"
                   className="w-full bg-gray-900/50 border-2 border-blue-500/30 hover:border-blue-500/50 focus:border-blue-500 rounded-xl px-6 py-4 text-white placeholder-gray-500 focus:outline-none transition-all duration-300 text-base backdrop-blur-sm resize-none"
+                  value={ideaText}
+                  onChange={(e) => setIdeaText(e.target.value)}
+                  disabled={backendStatus !== 'connected' || submitting}
                 />
               </div>
 
-              <div className="flex justify-end">
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-semibold text-base transition-all duration-300 transform hover:scale-105 shadow-xl shadow-blue-500/30 border border-blue-500/50">
-                  Fine Tune
+              <div className="flex justify-between items-center">
+                <SignedOut>
+                  <span className="text-xs text-gray-400">Sign in to submit ideas</span>
+                </SignedOut>
+                <SignedIn>
+                  <span className="text-xs text-gray-400">
+                    {user?.username || user?.firstName || 'User'}
+                  </span>
+                </SignedIn>
+                <button 
+                  onClick={handleSubmitIdea}
+                  disabled={backendStatus !== 'connected' || submitting || !ideaText.trim()}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-xl font-semibold text-base transition-all duration-300 transform hover:scale-105 shadow-xl shadow-blue-500/30 border border-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? 'Submitting...' : 'Submit Idea'}
                 </button>
               </div>
             </div>
+
+            {/* Live Ideas Feed */}
+            {ideas.length > 0 && (
+              <div className="mt-6 bg-black/80 backdrop-blur-xl border border-blue-500/30 rounded-3xl p-6">
+                <h3 className="text-white text-lg font-semibold mb-4">Live Ideas Feed</h3>
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {ideas.slice(0, 10).map((idea) => (
+                    <div key={idea.id} className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="text-blue-400 text-sm font-semibold">@{idea.username}</span>
+                        <span className="text-gray-500 text-xs">
+                          {new Date(idea.timestamp).toLocaleTimeString()}
+                        </span>
+                      </div>
+                      <p className="text-white text-sm">{idea.text}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -547,21 +668,6 @@ const LandingPage = () => {
             <p className="text-gray-300 text-xs leading-relaxed">
               "Best brainstorming platform we've used. The AI-powered features are incredibly intuitive and the real-time collaboration is seamless. Highly recommended!"
             </p>
-          </div>
-        </div>
-
-        {/* CTA Section */}
-        <div className="text-center mt-16">
-          <div className="bg-gradient-to-r from-blue-900/30 to-blue-950/30 border border-blue-500/30 rounded-2xl p-8 max-w-3xl mx-auto">
-            <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">
-              Ready to Transform Your Brainstorming?
-            </h3>
-            <p className="text-gray-400 text-base mb-6">
-              Join thousands of teams already using Kaleidoscope Cypher to unlock their creative potential
-            </p>
-            <button className="bg-white text-black px-8 py-4 rounded-full font-semibold text-lg hover:bg-gray-200 transition-all duration-300 hover:scale-105 shadow-lg">
-              Start Brainstorming Now
-            </button>
           </div>
         </div>
       </section>
