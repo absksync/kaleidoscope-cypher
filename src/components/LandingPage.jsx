@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SignedIn, SignedOut, SignInButton, UserButton, useUser } from '@clerk/clerk-react';
 import ApiService from '../services/api';
+import EnhancedApiService from '../services/enhancedApi';
 import wsService from '../services/websocket';
 
 const LandingPage = () => {
@@ -15,6 +16,10 @@ const LandingPage = () => {
   const [backendStatus, setBackendStatus] = useState('checking');
   const [variations, setVariations] = useState(null);
   const [showVariations, setShowVariations] = useState(false);
+  const [showChatbot, setShowChatbot] = useState(false);
+  const [chatMessage, setChatMessage] = useState('');
+  const [chatConversation, setChatConversation] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
   const dropdownRef = useRef(null);
   const solutionsDropdownRef = useRef(null);
 
@@ -93,6 +98,83 @@ const LandingPage = () => {
 
   const handleMouseMove = (e) => {
     setMousePosition({ x: e.clientX, y: e.clientY });
+  };
+
+  // Handle chatbot message send
+  const handleChatSend = async () => {
+    console.log('=== CHATBOT SEND TRIGGERED ===');
+    
+    if (!chatMessage.trim()) return;
+    if (chatLoading) return;
+    
+    const ideaText = chatMessage.trim();
+    setChatMessage('');
+    setChatLoading(true);
+
+    // Add user message
+    const userMessage = { 
+      role: 'user', 
+      content: ideaText,
+      timestamp: new Date().toLocaleTimeString()
+    };
+    setChatConversation(prev => [...prev, userMessage]);
+
+    // Add processing message
+    const processingMsg = { 
+      role: 'assistant', 
+      content: '🔄 Analyzing your idea...',
+      timestamp: new Date().toLocaleTimeString(),
+      type: 'processing'
+    };
+    setChatConversation(prev => [...prev, processingMsg]);
+
+    try {
+      console.log('📡 Fetching variations...');
+      const variationsRes = await ApiService.generateIdeaVariations(ideaText);
+      console.log('✅ Got variations:', variationsRes);
+
+      console.log('📡 Submitting idea...');
+      const username = user?.username || user?.firstName || 'Guest';
+      const submitRes = await ApiService.submitIdea(ideaText, username);
+      console.log('✅ Got diversity metrics:', submitRes);
+
+      // Remove processing message
+      setChatConversation(prev => prev.filter(msg => msg.type !== 'processing'));
+
+      // Build result with ALL data
+      const resultMessage = {
+        role: 'assistant',
+        content: '✅ Analysis Complete!',
+        timestamp: new Date().toLocaleTimeString(),
+        type: 'result',
+        data: {
+          diversity: {
+            originality: submitRes.diversity_metrics?.originality || 0,
+            elaboration: submitRes.diversity_metrics?.elaboration || 0,
+            fluency: submitRes.diversity_metrics?.fluency || 0,
+            flexibility: submitRes.diversity_metrics?.flexibility || 0
+          },
+          variations: variationsRes.generated_ideas || [],
+          method: variationsRes.method_used
+        }
+      };
+      
+      console.log('📊 Final result message:', resultMessage);
+      setChatConversation(prev => [...prev, resultMessage]);
+
+    } catch (error) {
+      console.error('❌ ERROR:', error);
+      setChatConversation(prev => prev.filter(msg => msg.type !== 'processing'));
+      setChatConversation(prev => [...prev, { 
+        role: 'assistant', 
+        content: `❌ Error: ${error.message}. Backend may be down.`,
+        timestamp: new Date().toLocaleTimeString(),
+        type: 'error'
+      }]);
+    } finally {
+      setChatLoading(false);
+      console.log('=== DONE ===');
+    }
   };
 
   // Close dropdown when clicking outside
@@ -292,11 +374,6 @@ const LandingPage = () => {
                     </div>
                   )}
                 </div>
-                
-                <a href="/kai-chat" className="text-gray-300 hover:text-white transition-all duration-200 hover:scale-105 flex items-center gap-2">
-                  <span className="text-xl">🤖</span>
-                  KAI Chat
-                </a>
                 
                 <button className="text-gray-300 hover:text-white transition-all duration-200 hover:scale-105">
                   Contact sales
@@ -829,6 +906,187 @@ const LandingPage = () => {
           </div>
         </div>
       </footer>
+      
+      {/* Floating Chatbot Toggle Button */}
+      <button
+        onClick={() => setShowChatbot(!showChatbot)}
+        className={`fixed bottom-6 right-6 z-50 w-16 h-16 bg-gradient-to-br from-blue-900 to-blue-950 hover:from-blue-800 hover:to-blue-900 rounded-full shadow-2xl flex items-center justify-center transition-all duration-300 hover:scale-110 group ${showChatbot ? 'ring-4 ring-cyan-400/50 shadow-cyan-400/50 animate-pulse' : 'shadow-blue-500/30'}`}
+      >
+        {showChatbot ? (
+          <svg className="w-8 h-8 text-white transition-transform group-hover:rotate-90 duration-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        ) : (
+          <svg className="w-8 h-8 text-white transition-transform group-hover:scale-110 duration-300" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2C10.9 2 10 2.9 10 4V5C7.8 5.6 6 7.6 6 10V16L4 18V19H20V18L18 16V10C18 7.6 16.2 5.6 14 5V4C14 2.9 13.1 2 12 2ZM12 4C12.6 4 13 4.4 13 5V5.1C13 5.1 12.5 5 12 5C11.5 5 11 5.1 11 5.1V5C11 4.4 11.4 4 12 4ZM8 10C8 8.3 9.3 7 11 7H13C14.7 7 16 8.3 16 10V16H8V10ZM9 11V13H11V11H9ZM13 11V13H15V11H13ZM9 14V15H15V14H9Z"/>
+            <circle cx="12" cy="12" r="1.5" fill="currentColor" className="animate-ping opacity-75"/>
+          </svg>
+        )}
+      </button>
+
+      {/* Chatbot Window */}
+      <div className={`fixed bottom-24 right-6 z-50 w-96 transition-all duration-300 ${showChatbot ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
+        <div className={`bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden ${showChatbot ? 'border-2 border-cyan-400/50 shadow-cyan-400/30' : 'border border-blue-500/30 shadow-blue-500/20'}`}>
+          {/* Chat Header */}
+          <div className="bg-gradient-to-r from-blue-900 to-blue-950 p-4 flex items-center justify-between border-b border-cyan-400/20">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-cyan-500/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-cyan-400/30 shadow-lg shadow-cyan-400/20">
+                <svg className="w-6 h-6 text-cyan-400" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M12 2C10.9 2 10 2.9 10 4V5C7.8 5.6 6 7.6 6 10V16L4 18V19H20V18L18 16V10C18 7.6 16.2 5.6 14 5V4C14 2.9 13.1 2 12 2ZM12 4C12.6 4 13 4.4 13 5V5.1C13 5.1 12.5 5 12 5C11.5 5 11 5.1 11 5.1V5C11 4.4 11.4 4 12 4ZM8 10C8 8.3 9.3 7 11 7H13C14.7 7 16 8.3 16 10V16H8V10ZM9 11V13H11V11H9ZM13 11V13H15V11H13ZM9 14V15H15V14H9Z"/>
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-white font-semibold">KAI Assistant</h3>
+                <p className="text-cyan-300 text-xs">Kaleidoscope AI</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse shadow-lg shadow-cyan-400/50"></div>
+              <span className="text-xs text-cyan-300">Active</span>
+            </div>
+          </div>
+
+          {/* Chat Messages */}
+          <div className="h-96 overflow-y-auto p-4 space-y-4 bg-gradient-to-b from-gray-900/50 to-black/50">
+            {chatConversation.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-6xl mb-4">👋</div>
+                <p className="text-blue-200 text-sm mb-2">Hi! I'm KAI, your AI assistant</p>
+                <p className="text-blue-300/70 text-xs">Ask me anything about Kaleidoscope!</p>
+              </div>
+            ) : (
+              chatConversation.map((msg, idx) => (
+                <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} relative`}>
+                  <div className={`max-w-[85%] ${
+                    msg.role === 'user' 
+                      ? 'bg-gradient-to-br from-blue-700 to-blue-900 text-white rounded-2xl rounded-tr-sm px-4 py-3 shadow-md' 
+                      : msg.type === 'result'
+                      ? 'w-full'
+                      : msg.type === 'error'
+                      ? 'bg-gradient-to-br from-red-900/40 to-red-950/40 border border-red-500/40 text-red-200 rounded-2xl rounded-tl-sm px-4 py-3'
+                      : 'bg-gradient-to-br from-gray-800/60 to-gray-900/60 border border-blue-500/30 text-blue-100 rounded-2xl rounded-tl-sm px-4 py-3'
+                  }`}>
+                    {msg.type === 'result' ? (
+                      // Result card with metrics
+                      <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 border border-blue-500/30 rounded-2xl p-4 space-y-3 shadow-md">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg flex items-center justify-center shadow-md">
+                            <span className="text-white text-lg">✓</span>
+                          </div>
+                          <span className="text-blue-300 font-bold">{msg.content}</span>
+                        </div>
+                        
+                        {/* Diversity Metrics */}
+                        {msg.data.diversity && (
+                          <div className="bg-black/40 rounded-xl p-3 border border-blue-500/20">
+                            <h4 className="text-blue-300 font-semibold text-sm mb-2 flex items-center gap-2">
+                              <span>📊</span> Diversity Analysis
+                            </h4>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div className="bg-blue-900/30 rounded-lg p-2 border border-blue-500/20">
+                                <div className="text-blue-400/70">Originality</div>
+                                <div className="text-blue-300 font-bold">{(msg.data.diversity.originality * 100).toFixed(1)}%</div>
+                              </div>
+                              <div className="bg-blue-900/30 rounded-lg p-2 border border-blue-500/20">
+                                <div className="text-blue-400/70">Elaboration</div>
+                                <div className="text-blue-300 font-bold">{(msg.data.diversity.elaboration * 100).toFixed(1)}%</div>
+                              </div>
+                              <div className="bg-blue-900/30 rounded-lg p-2 border border-blue-500/20">
+                                <div className="text-blue-400/70">Fluency</div>
+                                <div className="text-blue-300 font-bold">{msg.data.diversity.fluency}</div>
+                              </div>
+                              <div className="bg-blue-900/30 rounded-lg p-2 border border-blue-500/20">
+                                <div className="text-blue-400/70">Flexibility</div>
+                                <div className="text-blue-300 font-bold">{msg.data.diversity.flexibility}</div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Variations */}
+                        {msg.data.variations && msg.data.variations.length > 0 && (
+                          <div className="bg-black/40 rounded-xl p-3 border border-purple-500/20">
+                            <h4 className="text-purple-300 font-semibold text-sm mb-2 flex items-center gap-2">
+                              <span>🎨</span> Creative Variations ({msg.data.variations.length})
+                            </h4>
+                            <div className="space-y-2 max-h-32 overflow-y-auto">
+                              {msg.data.variations.slice(0, 3).map((v, i) => (
+                                <div key={i} className="bg-purple-900/20 rounded-lg p-2 border border-purple-500/20 text-xs">
+                                  <div className="text-purple-400/70 font-semibold mb-1">{v.technique}</div>
+                                  <div className="text-purple-200 text-xs leading-relaxed">{v.variation_text}</div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        <div className="text-xs text-blue-300/50 flex items-center justify-between pt-2 border-t border-blue-500/20">
+                          <span>{msg.timestamp}</span>
+                          <span className="text-green-400">✓ Processed</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                        {msg.timestamp && (
+                          <div className="text-xs opacity-60 mt-1.5">{msg.timestamp}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+            {chatLoading && (
+              <div className="flex justify-start">
+                <div className="bg-gradient-to-br from-blue-900/30 to-blue-950/30 border border-blue-500/30 rounded-2xl px-4 py-2">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                    <div className="w-2 h-2 bg-cyan-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Chat Input */}
+          <div className="p-4 bg-black/50 border-t border-blue-500/20">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={chatMessage}
+                onChange={(e) => setChatMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleChatSend();
+                  }
+                }}
+                placeholder="Type your message..."
+                className="flex-1 bg-blue-900/20 border border-blue-500/30 text-white placeholder-blue-200/50 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                disabled={chatLoading}
+              />
+              <button
+                onClick={handleChatSend}
+                disabled={!chatMessage.trim() || chatLoading}
+                className="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white p-3 rounded-xl transition-all hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+              >
+                {chatLoading ? (
+                  <svg className="w-6 h-6 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
       </div>
     </div>
   );

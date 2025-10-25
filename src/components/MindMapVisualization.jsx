@@ -1,610 +1,297 @@
 import { useState, useEffect, useRef } from 'react';
 
 const MindMapVisualization = () => {
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [selectedNode, setSelectedNode] = useState(null);
   const [zoom, setZoom] = useState(1);
-  const [showAddNodeModal, setShowAddNodeModal] = useState(false);
-  const [newNodeData, setNewNodeData] = useState({ title: '', parent: 'central', icon: '💡' });
+  const [showAddCentralModal, setShowAddCentralModal] = useState(false);
+  const [showAddBranchModal, setShowAddBranchModal] = useState(false);
+  const [showAddSubnodeModal, setShowAddSubnodeModal] = useState(false);
+  const [newNodeTitle, setNewNodeTitle] = useState('');
+  const [newSubnodeTitle, setNewSubnodeTitle] = useState('');
+  const [parentBranchId, setParentBranchId] = useState(null);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
   const canvasRef = useRef(null);
+  const containerRef = useRef(null);
+  const [mindMapData, setMindMapData] = useState({ central: null, branches: [] });
 
-  const handleMouseMove = (e) => {
-    setMousePosition({ x: e.clientX, y: e.clientY });
+  // Kaleidoscope theme color palette - matching website
+  const branchColors = [
+    { gradient: 'from-blue-500 to-blue-600', border: 'border-blue-400', text: 'text-blue-100', glow: 'shadow-blue-500/50' },
+    { gradient: 'from-cyan-500 to-cyan-600', border: 'border-cyan-400', text: 'text-cyan-100', glow: 'shadow-cyan-500/50' },
+    { gradient: 'from-indigo-500 to-indigo-600', border: 'border-indigo-400', text: 'text-indigo-100', glow: 'shadow-indigo-500/50' },
+    { gradient: 'from-violet-500 to-violet-600', border: 'border-violet-400', text: 'text-violet-100', glow: 'shadow-violet-500/50' },
+    { gradient: 'from-purple-500 to-purple-600', border: 'border-purple-400', text: 'text-purple-100', glow: 'shadow-purple-500/50' },
+    { gradient: 'from-pink-500 to-pink-600', border: 'border-pink-400', text: 'text-pink-100', glow: 'shadow-pink-500/50' },
+    { gradient: 'from-rose-500 to-rose-600', border: 'border-rose-400', text: 'text-rose-100', glow: 'shadow-rose-500/50' },
+    { gradient: 'from-teal-500 to-teal-600', border: 'border-teal-400', text: 'text-teal-100', glow: 'shadow-teal-500/50' },
+  ];  const handleCreateCentral = () => {
+    if (!newNodeTitle.trim()) return;
+    setMindMapData({ ...mindMapData, central: { id: 'central', title: newNodeTitle.trim(), x: 50, y: 50 } });
+    setNewNodeTitle('');
+    setShowAddCentralModal(false);
   };
 
-  // Initial mind map data - now we can modify it
-  const [mindMapData, setMindMapData] = useState({
-    central: {
-      id: 'central',
-      title: 'Innovation Strategy',
-      x: 50,
-      y: 50,
-      color: 'from-blue-600 to-purple-600',
-      borderColor: 'border-blue-400',
-      shadowColor: 'shadow-blue-500/50'
-    },
-    branches: [
-      {
-        id: 'tech',
-        title: 'Technology',
-        icon: '💻',
-        x: 25,
-        y: 20,
-        color: 'from-cyan-600 to-blue-600',
-        borderColor: 'border-cyan-400',
-        shadowColor: 'shadow-cyan-500/40',
-        subnodes: [
-          { id: 'ai', title: 'AI & ML', x: 15, y: 10 },
-          { id: 'cloud', title: 'Cloud Computing', x: 20, y: 5 },
-          { id: 'blockchain', title: 'Blockchain', x: 10, y: 15 }
-        ]
-      },
-      {
-        id: 'market',
-        title: 'Market Analysis',
-        icon: '📊',
-        x: 75,
-        y: 20,
-        color: 'from-purple-600 to-pink-600',
-        borderColor: 'border-purple-400',
-        shadowColor: 'shadow-purple-500/40',
-        subnodes: [
-          { id: 'trends', title: 'Market Trends', x: 85, y: 10 },
-          { id: 'competitors', title: 'Competitors', x: 80, y: 5 },
-          { id: 'demographics', title: 'Demographics', x: 90, y: 15 }
-        ]
-      },
-      {
-        id: 'product',
-        title: 'Product Dev',
-        icon: '🚀',
-        x: 25,
-        y: 80,
-        color: 'from-green-600 to-emerald-600',
-        borderColor: 'border-green-400',
-        shadowColor: 'shadow-green-500/40',
-        subnodes: [
-          { id: 'design', title: 'UX Design', x: 15, y: 90 },
-          { id: 'testing', title: 'Testing', x: 20, y: 95 },
-          { id: 'iteration', title: 'Iteration', x: 10, y: 85 }
-        ]
-      },
-      {
-        id: 'growth',
-        title: 'Growth Strategy',
-        icon: '📈',
-        x: 75,
-        y: 80,
-        color: 'from-orange-600 to-red-600',
-        borderColor: 'border-orange-400',
-        shadowColor: 'shadow-orange-500/40',
-        subnodes: [
-          { id: 'marketing', title: 'Marketing', x: 85, y: 90 },
-          { id: 'sales', title: 'Sales', x: 80, y: 95 },
-          { id: 'partnerships', title: 'Partnerships', x: 90, y: 85 }
-        ]
-      }
-    ]
-  });
+  const handleAddBranch = () => {
+    if (!newNodeTitle.trim() || !mindMapData.central) return;
+    const branchCount = mindMapData.branches.length;
+    const colorIndex = branchCount % branchColors.length;
+    const angle = (branchCount * (360 / 8)) * (Math.PI / 180);
+    const radius = 25;
+    const newBranch = {
+      id: `branch-${Date.now()}`,
+      title: newNodeTitle.trim(),
+      x: 50 + Math.cos(angle) * radius,
+      y: 50 + Math.sin(angle) * radius,
+      color: branchColors[colorIndex].gradient,
+      borderColor: branchColors[colorIndex].border,
+      textColor: branchColors[colorIndex].text,
+      glow: branchColors[colorIndex].glow,
+      subnodes: []
+    };
+    setMindMapData({ ...mindMapData, branches: [...mindMapData.branches, newBranch] });
+    setNewNodeTitle('');
+    setShowAddBranchModal(false);
+  };
 
-  // Draw connections on canvas
+  const handleAddSubnode = () => {
+    if (!newSubnodeTitle.trim() || !parentBranchId) return;
+    const updatedBranches = mindMapData.branches.map(branch => {
+      if (branch.id === parentBranchId) {
+        const subnodeCount = branch.subnodes.length;
+        const angle = ((subnodeCount * 60) - 30) * (Math.PI / 180);
+        const branchAngle = Math.atan2(branch.y - 50, branch.x - 50);
+        const radius = 15;
+        const newSubnode = {
+          id: `subnode-${Date.now()}`,
+          title: newSubnodeTitle.trim(),
+          x: branch.x + Math.cos(branchAngle + angle) * radius,
+          y: branch.y + Math.sin(branchAngle + angle) * radius
+        };
+        return { ...branch, subnodes: [...branch.subnodes, newSubnode] };
+      }
+      return branch;
+    });
+    setMindMapData({ ...mindMapData, branches: updatedBranches });
+    setNewSubnodeTitle('');
+    setParentBranchId(null);
+    setShowAddSubnodeModal(false);
+  };
+
+  const handleDeleteBranch = (branchId) => {
+    setMindMapData({ ...mindMapData, branches: mindMapData.branches.filter(b => b.id !== branchId) });
+    setSelectedNode(null);
+  };
+
+  const handleDeleteSubnode = (branchId, subnodeId) => {
+    const updatedBranches = mindMapData.branches.map(branch => {
+      if (branch.id === branchId) {
+        return { ...branch, subnodes: branch.subnodes.filter(s => s.id !== subnodeId) };
+      }
+      return branch;
+    });
+    setMindMapData({ ...mindMapData, branches: updatedBranches });
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
-
+    if (!canvas || !mindMapData.central) return;
     const ctx = canvas.getContext('2d');
     const rect = canvas.getBoundingClientRect();
     canvas.width = rect.width * 2;
     canvas.height = rect.height * 2;
     ctx.scale(2, 2);
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    const drawCurvedLine = (x1, y1, x2, y2, color, width = 2, glow = true) => {
-      const midX = (x1 + x2) / 2;
-      const midY = (y1 + y2) / 2;
-      const controlX = midX;
-      const controlY = midY - Math.abs(x2 - x1) * 0.15;
-
-      if (glow) {
-        ctx.shadowBlur = 15;
-        ctx.shadowColor = color;
-      }
-
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    mindMapData.branches.forEach((branch) => {
+      const centerX = (mindMapData.central.x / 100) * rect.width;
+      const centerY = (mindMapData.central.y / 100) * rect.height;
+      const branchX = (branch.x / 100) * rect.width;
+      const branchY = (branch.y / 100) * rect.height;
       ctx.beginPath();
-      ctx.moveTo(x1, y1);
-      ctx.quadraticCurveTo(controlX, controlY, x2, y2);
-      ctx.strokeStyle = color;
-      ctx.lineWidth = width;
+      ctx.moveTo(centerX, centerY);
+      ctx.lineTo(branchX, branchY);
+      ctx.strokeStyle = 'rgba(100, 116, 139, 0.3)';
+      ctx.lineWidth = 2;
       ctx.stroke();
-
-      ctx.shadowBlur = 0;
-    };
-
-    // Draw main branch connections
-    mindMapData.branches.forEach(branch => {
-      const x1 = (mindMapData.central.x / 100) * rect.width;
-      const y1 = (mindMapData.central.y / 100) * rect.height;
-      const x2 = (branch.x / 100) * rect.width;
-      const y2 = (branch.y / 100) * rect.height;
-
-      drawCurvedLine(x1, y1, x2, y2, 'rgba(96, 165, 250, 0.6)', 3);
-
-      // Draw sub-node connections
-      branch.subnodes.forEach(subnode => {
-        const sx1 = x2;
-        const sy1 = y2;
-        const sx2 = (subnode.x / 100) * rect.width;
-        const sy2 = (subnode.y / 100) * rect.height;
-
-        drawCurvedLine(sx1, sy1, sx2, sy2, 'rgba(147, 197, 253, 0.4)', 1.5, false);
+      branch.subnodes.forEach((subnode) => {
+        const subnodeX = (subnode.x / 100) * rect.width;
+        const subnodeY = (subnode.y / 100) * rect.height;
+        ctx.beginPath();
+        ctx.moveTo(branchX, branchY);
+        ctx.lineTo(subnodeX, subnodeY);
+        ctx.strokeStyle = 'rgba(100, 116, 139, 0.2)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
       });
     });
-  }, []);
+  }, [mindMapData, zoom]);
 
-  const handleNodeClick = (node) => {
-    setSelectedNode(node);
+  const handleMouseDown = (e) => {
+    if (e.target === containerRef.current || e.target === canvasRef.current) {
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - panOffset.x, y: e.clientY - panOffset.y });
+    }
+  };
+
+  const handleMouseMove = (e) => {
+    if (isPanning) setPanOffset({ x: e.clientX - panStart.x, y: e.clientY - panStart.y });
+  };
+
+  const handleMouseUp = () => setIsPanning(false);
+
+  const handleZoomIn = () => setZoom(Math.min(zoom + 0.1, 2));
+  const handleZoomOut = () => setZoom(Math.max(zoom - 0.1, 0.5));
+  const handleResetZoom = () => { setZoom(1); setPanOffset({ x: 0, y: 0 }); };
+
+  const handleClearAll = () => {
+    if (window.confirm('Are you sure you want to clear the entire mind map?')) {
+      setMindMapData({ central: null, branches: [] });
+      setSelectedNode(null);
+    }
+  };
+
+  const handleExport = () => {
+    const dataStr = JSON.stringify(mindMapData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'mindmap.json';
+    link.click();
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden" onMouseMove={handleMouseMove}>
-      {/* Animated Gradient Background */}
-      <div className="absolute inset-0 bg-black"></div>
-      
-      {/* Main Grid Lines - Subtle */}
-      <div className="absolute inset-0 z-0" style={{
-        backgroundImage: `
-          linear-gradient(to right, rgba(59, 130, 246, 0.12) 1px, transparent 1px),
-          linear-gradient(to bottom, rgba(59, 130, 246, 0.12) 1px, transparent 1px)
-        `,
-        backgroundSize: '60px 60px'
-      }}></div>
-      
-      {/* Diagonal Grid Pattern */}
-      <div className="absolute inset-0 z-0" style={{
-        backgroundImage: `
-          linear-gradient(45deg, rgba(96, 165, 250, 0.08) 1px, transparent 1px),
-          linear-gradient(-45deg, rgba(96, 165, 250, 0.08) 1px, transparent 1px)
-        `,
-        backgroundSize: '40px 40px'
-      }}></div>
-      
-      {/* Mouse Following Light Effect */}
-      <div 
-        className="absolute z-0 pointer-events-none"
-        style={{
-          left: mousePosition.x - 250,
-          top: mousePosition.y - 250,
-          width: '500px',
-          height: '500px',
-          background: `radial-gradient(circle, rgba(59, 130, 246, 0.18) 0%, rgba(96, 165, 250, 0.11) 20%, transparent 65%)`,
-          filter: 'blur(45px)',
-          transform: 'translate3d(0, 0, 0)',
-          willChange: 'transform',
-        }}
-      ></div>
-      
-      {/* Kaleidoscope Radial Pattern - More Subtle */}
-      <div className="absolute inset-0 opacity-15 z-0" style={{
-        backgroundImage: `
-          repeating-conic-gradient(
-            from 0deg at 50% 50%,
-            rgba(59, 130, 246, 0.15) 0deg,
-            transparent 8deg,
-            rgba(96, 165, 250, 0.12) 16deg,
-            transparent 24deg,
-            rgba(147, 197, 253, 0.1) 32deg,
-            transparent 40deg,
-            rgba(59, 130, 246, 0.15) 48deg
-          )
-        `,
-        backgroundSize: '600px 600px',
-        backgroundPosition: 'center center'
-      }}></div>
-      
-      {/* Perspective Grid Effect - Subtle */}
-      <div className="absolute inset-0 opacity-12 z-0" style={{
-        backgroundImage: `
-          linear-gradient(to right, rgba(59, 130, 246, 0.18) 2px, transparent 2px),
-          linear-gradient(to bottom, rgba(59, 130, 246, 0.18) 2px, transparent 2px)
-        `,
-        backgroundSize: '80px 80px',
-        transform: 'perspective(600px) rotateX(60deg)',
-        transformOrigin: 'center bottom',
-        minHeight: '200vh'
-      }}></div>
-      
-      {/* Gradient Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-br from-blue-950/10 via-transparent to-blue-950/10 z-0"></div>
-      
-      {/* Content wrapper */}
+    <div className="min-h-screen bg-black">
+      {/* Animated background like landing page */}
+      <div className="fixed inset-0 z-0">
+        <div className="absolute inset-0 opacity-12" style={{
+          backgroundImage: `
+            linear-gradient(to right, rgba(59, 130, 246, 0.18) 2px, transparent 2px),
+            linear-gradient(to bottom, rgba(59, 130, 246, 0.18) 2px, transparent 2px)
+          `,
+          backgroundSize: '80px 80px',
+          transform: 'perspective(600px) rotateX(60deg)',
+          transformOrigin: 'center bottom',
+          minHeight: '200vh'
+        }}></div>
+        <div className="absolute inset-0 bg-gradient-to-br from-blue-950/10 via-transparent to-blue-950/10"></div>
+      </div>
+
+      {/* Content */}
       <div className="relative z-10">
-        {/* Header */}
-        <header className="backdrop-blur-md bg-black/50 border-b border-blue-500/30 sticky top-0 z-50">
-          <div className="px-4 py-2">
+        {/* Header with glassmorphism */}
+        <header className="bg-black/50 backdrop-blur-md border-b border-blue-500/30 sticky top-0 z-50">
+          <div className="px-6 py-4">
             <div className="flex justify-between items-center">
-              <div className="flex items-center gap-8 ml-2">
-                <a href="/">
-                  <img 
-                    src="/logo.png" 
-                    alt="Kaleidoscope Logo" 
-                    className="h-16 w-auto object-contain drop-shadow-2xl"
-                  />
-                </a>
+              <div className="flex items-center gap-4">
+                <a href="/"><img src="/logo.png" alt="Kaleidoscope Logo" className="h-12 w-auto object-contain hover:scale-105 transition-transform"/></a>
+                <div className="h-8 w-px bg-blue-500/30"></div>
+                <h1 className="text-xl font-semibold text-white hover:text-transparent hover:bg-clip-text hover:bg-gradient-to-r hover:from-blue-400 hover:via-cyan-400 hover:to-blue-400 transition-all duration-300">Mind Map Builder</h1>
               </div>
-              <a href="/" className="text-sm text-gray-300 hover:text-white transition-colors">← Back to Home</a>
+              <a href="/" className="text-sm text-blue-400 hover:text-cyan-400 transition-colors flex items-center gap-2 group">
+                <span className="group-hover:-translate-x-1 transition-transform">←</span> Back to Home
+              </a>
             </div>
           </div>
         </header>
-
-        {/* Main Content */}
-        <div className="container mx-auto px-6 py-12">
-          <div className="max-w-6xl mx-auto">
-            {/* Header */}
-            <div className="text-center mb-8">
-              <div className="text-6xl mb-4 animate-bounce">🧠</div>
-              <h1 className="text-4xl md:text-5xl font-bold text-white mb-3 bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                Innovation Mind Map
-              </h1>
-              <p className="text-base text-gray-400 max-w-2xl mx-auto">
-                Explore the interconnected landscape of innovation strategy • Click nodes to reveal insights
-              </p>
-              <div className="flex items-center justify-center gap-4 mt-4">
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  <span className="text-gray-400">Live View</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-400">•</span>
-                  <span className="text-blue-400 font-semibold">
-                    {1 + mindMapData.branches.length + mindMapData.branches.reduce((acc, branch) => acc + branch.subnodes.length, 0)} Nodes
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <span className="text-gray-400">•</span>
-                  <span className="text-purple-400 font-semibold">{mindMapData.branches.length} Branches</span>
-                </div>
+      <div className="flex h-[calc(100vh-73px)]">
+        <div className="w-80 bg-black/30 backdrop-blur-sm border-r border-blue-500/30 p-6 overflow-y-auto">
+          <div className="space-y-6">
+            {!mindMapData.central && (
+              <div className="bg-gradient-to-br from-blue-900/20 to-blue-950/20 border border-blue-500/30 rounded-xl p-4 hover:border-blue-500/50 transition-all">
+                <h3 className="font-semibold text-blue-400 mb-2">Getting Started</h3>
+                <p className="text-sm text-blue-200/70 mb-3">Create a central node to begin building your mind map.</p>
+                <button onClick={() => setShowAddCentralModal(true)} className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white px-4 py-2.5 rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50">Create Central Node</button>
               </div>
-            </div>
-
-            {/* Toolbar */}
-            <div className="mb-6 bg-black/80 backdrop-blur-xl border border-blue-500/30 rounded-2xl p-4">
-              <div className="flex flex-wrap gap-3 items-center justify-between">
-                <div className="flex gap-2">
-                  <button className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-all border border-blue-500/50 shadow-lg shadow-blue-500/30 flex items-center gap-2">
-                    <span>🎯</span>
-                    Focus View
-                  </button>
-                  <button className="bg-black/50 hover:bg-blue-500/20 text-gray-300 hover:text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-all border border-blue-500/30 flex items-center gap-2">
-                    <span>🔍</span>
-                    Zoom In
-                  </button>
-                  <button className="bg-black/50 hover:bg-blue-500/20 text-gray-300 hover:text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-all border border-blue-500/30 flex items-center gap-2">
-                    <span>🔎</span>
-                    Zoom Out
-                  </button>
-                </div>
-                <div className="flex gap-2">
-                  <button className="bg-black/50 hover:bg-blue-500/20 text-gray-300 hover:text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-all border border-blue-500/30 flex items-center gap-2">
-                    <span>📸</span>
-                    Export PNG
-                  </button>
-                  <button className="bg-black/50 hover:bg-purple-500/20 text-gray-300 hover:text-white px-5 py-2.5 rounded-lg text-sm font-semibold transition-all border border-purple-500/30 flex items-center gap-2">
-                    <span>🔗</span>
-                    Share
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Mind Map Canvas */}
-            <div className="mb-6 bg-black/80 backdrop-blur-xl border border-blue-500/30 rounded-2xl p-4 overflow-hidden">
-              <div className="relative w-full" style={{ height: '600px' }}>
-                {/* Canvas for connections */}
-                <canvas 
-                  ref={canvasRef}
-                  className="absolute inset-0 w-full h-full pointer-events-none"
-                  style={{ zIndex: 1 }}
-                />
-
-                {/* Central Node */}
-                <div 
-                  className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-300 hover:scale-110 z-10 ${
-                    selectedNode?.id === 'central' ? 'scale-110' : ''
-                  }`}
-                  style={{ 
-                    left: `${mindMapData.central.x}%`, 
-                    top: `${mindMapData.central.y}%`,
-                    zIndex: 10
-                  }}
-                  onClick={() => handleNodeClick(mindMapData.central)}
-                >
-                  <div className={`bg-gradient-to-br ${mindMapData.central.color} border-2 ${mindMapData.central.borderColor} rounded-2xl px-8 py-5 shadow-2xl ${mindMapData.central.shadowColor} relative overflow-hidden group`}>
-                    {/* Animated glow effect */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                    <div className="relative">
-                      <div className="text-3xl mb-1 text-center">🎯</div>
-                      <p className="text-white font-bold text-base text-center whitespace-nowrap">{mindMapData.central.title}</p>
-                    </div>
+            )}
+            {mindMapData.central && (<>
+                <div>
+                  <h3 className="text-sm font-semibold text-blue-400 mb-3">Add Nodes</h3>
+                  <div className="space-y-2">
+                    <button onClick={() => setShowAddBranchModal(true)} className="w-full bg-gradient-to-br from-blue-900/30 to-blue-950/30 hover:from-blue-900/50 hover:to-blue-950/50 border border-blue-500/30 hover:border-blue-500/50 text-blue-100 px-4 py-2.5 rounded-lg font-medium transition-all text-left flex items-center gap-2 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/20"><span className="text-lg">➕</span>Add Main Branch</button>
+                    {mindMapData.branches.length > 0 && (<button onClick={() => { if (selectedNode && selectedNode.type === 'branch') { setParentBranchId(selectedNode.id); setShowAddSubnodeModal(true); } else { alert('Please select a branch first by clicking on it'); } }} className="w-full bg-gradient-to-br from-blue-900/30 to-blue-950/30 hover:from-blue-900/50 hover:to-blue-950/50 border border-blue-500/30 hover:border-blue-500/50 text-blue-100 px-4 py-2.5 rounded-lg font-medium transition-all text-left flex items-center gap-2 hover:scale-[1.02] hover:shadow-lg hover:shadow-blue-500/20"><span className="text-lg">��</span>Add Sub-node</button>)}
                   </div>
                 </div>
-
-                {/* Branch Nodes */}
-                {mindMapData.branches.map((branch, index) => (
-                  <div key={branch.id}>
-                    {/* Main Branch Node */}
-                    <div 
-                      className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-500 hover:scale-110 z-10 ${
-                        selectedNode?.id === branch.id ? 'scale-110' : ''
-                      }`}
-                      style={{ 
-                        left: `${branch.x}%`, 
-                        top: `${branch.y}%`,
-                        animation: `float${index} 3s ease-in-out infinite`,
-                        zIndex: 10
-                      }}
-                      onClick={() => handleNodeClick(branch)}
-                    >
-                      <div className={`bg-gradient-to-br ${branch.color} border-2 ${branch.borderColor} rounded-xl px-6 py-4 shadow-xl ${branch.shadowColor} relative overflow-hidden group`}>
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-                        <div className="relative flex items-center gap-2">
-                          <span className="text-2xl">{branch.icon}</span>
-                          <p className="text-white font-semibold text-sm whitespace-nowrap">{branch.title}</p>
-                        </div>
-                        {/* Pulse ring */}
-                        <div className="absolute inset-0 rounded-xl border-2 border-white/30 opacity-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-500"></div>
+                <div>
+                  <h3 className="text-sm font-semibold text-blue-400 mb-3">View Controls</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between bg-blue-900/20 border border-blue-500/20 p-3 rounded-lg">
+                      <span className="text-sm text-blue-200">Zoom: {(zoom * 100).toFixed(0)}%</span>
+                      <div className="flex gap-1">
+                        <button onClick={handleZoomOut} className="px-3 py-1 bg-blue-600/50 hover:bg-blue-600 border border-blue-500/30 rounded text-blue-100 font-medium">−</button>
+                        <button onClick={handleZoomIn} className="px-3 py-1 bg-blue-600/50 hover:bg-blue-600 border border-blue-500/30 rounded text-blue-100 font-medium transition-colors">+</button>
                       </div>
                     </div>
-
-                    {/* Sub-nodes */}
-                    {branch.subnodes.map((subnode, subIndex) => (
-                      <div 
-                        key={subnode.id}
-                        className={`absolute transform -translate-x-1/2 -translate-y-1/2 cursor-pointer transition-all duration-300 hover:scale-105 ${
-                          selectedNode?.id === subnode.id ? 'scale-105' : ''
-                        }`}
-                        style={{ 
-                          left: `${subnode.x}%`, 
-                          top: `${subnode.y}%`,
-                          animation: `float${index}sub${subIndex} 4s ease-in-out infinite`,
-                          animationDelay: `${subIndex * 0.2}s`,
-                          zIndex: 5
-                        }}
-                        onClick={() => handleNodeClick(subnode)}
-                      >
-                        <div className="bg-gradient-to-br from-blue-500/40 to-purple-500/40 backdrop-blur-sm border border-blue-400/60 rounded-lg px-4 py-2 shadow-lg shadow-blue-500/20 relative overflow-hidden group">
-                          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-500"></div>
-                          <p className="text-white text-xs font-medium whitespace-nowrap relative">{subnode.title}</p>
-                          {/* Sparkle effect on hover */}
-                          <div className="absolute -top-1 -right-1 w-2 h-2 bg-blue-400 rounded-full opacity-0 group-hover:opacity-100 group-hover:animate-ping"></div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ))}
-
-                {/* Decorative particles */}
-                {[...Array(20)].map((_, i) => (
-                  <div 
-                    key={i}
-                    className="absolute w-1 h-1 bg-blue-400/30 rounded-full"
-                    style={{
-                      left: `${Math.random() * 100}%`,
-                      top: `${Math.random() * 100}%`,
-                      animation: `pulse ${2 + Math.random() * 3}s ease-in-out infinite`,
-                      animationDelay: `${Math.random() * 2}s`
-                    }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Add CSS animations */}
-            <style jsx>{`
-              @keyframes float0 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px); }
-                50% { transform: translate(-50%, -50%) translateY(-10px); }
-              }
-              @keyframes float1 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px); }
-                50% { transform: translate(-50%, -50%) translateY(-12px); }
-              }
-              @keyframes float2 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px); }
-                50% { transform: translate(-50%, -50%) translateY(-8px); }
-              }
-              @keyframes float3 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px); }
-                50% { transform: translate(-50%, -50%) translateY(-11px); }
-              }
-              @keyframes float0sub0 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px) rotate(0deg); }
-                50% { transform: translate(-50%, -50%) translateY(-6px) rotate(2deg); }
-              }
-              @keyframes float0sub1 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px) rotate(0deg); }
-                50% { transform: translate(-50%, -50%) translateY(-5px) rotate(-2deg); }
-              }
-              @keyframes float0sub2 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px) rotate(0deg); }
-                50% { transform: translate(-50%, -50%) translateY(-7px) rotate(1deg); }
-              }
-              @keyframes float1sub0 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px) rotate(0deg); }
-                50% { transform: translate(-50%, -50%) translateY(-6px) rotate(-2deg); }
-              }
-              @keyframes float1sub1 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px) rotate(0deg); }
-                50% { transform: translate(-50%, -50%) translateY(-5px) rotate(2deg); }
-              }
-              @keyframes float1sub2 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px) rotate(0deg); }
-                50% { transform: translate(-50%, -50%) translateY(-7px) rotate(-1deg); }
-              }
-              @keyframes float2sub0 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px) rotate(0deg); }
-                50% { transform: translate(-50%, -50%) translateY(-6px) rotate(1deg); }
-              }
-              @keyframes float2sub1 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px) rotate(0deg); }
-                50% { transform: translate(-50%, -50%) translateY(-5px) rotate(-1deg); }
-              }
-              @keyframes float2sub2 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px) rotate(0deg); }
-                50% { transform: translate(-50%, -50%) translateY(-7px) rotate(2deg); }
-              }
-              @keyframes float3sub0 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px) rotate(0deg); }
-                50% { transform: translate(-50%, -50%) translateY(-6px) rotate(-1deg); }
-              }
-              @keyframes float3sub1 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px) rotate(0deg); }
-                50% { transform: translate(-50%, -50%) translateY(-5px) rotate(1deg); }
-              }
-              @keyframes float3sub2 {
-                0%, 100% { transform: translate(-50%, -50%) translateY(0px) rotate(0deg); }
-                50% { transform: translate(-50%, -50%) translateY(-7px) rotate(-2deg); }
-              }
-              @keyframes pulse {
-                0%, 100% { opacity: 0.3; transform: scale(1); }
-                50% { opacity: 1; transform: scale(1.5); }
-              }
-            `}</style>
-
-            {/* Node Details Panel */}
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="bg-black/80 backdrop-blur-xl border border-blue-500/30 rounded-2xl p-6">
-                <h3 className="text-white text-lg font-semibold mb-4 flex items-center gap-2">
-                  <span className="text-2xl">✨</span>
-                  Selected Node Details
-                </h3>
-                {selectedNode ? (
-                  <div className="space-y-4">
-                    <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 border border-blue-500/30 rounded-xl p-4">
-                      <div className="flex items-center gap-3 mb-3">
-                        {selectedNode.icon && <span className="text-3xl">{selectedNode.icon}</span>}
-                        <h4 className="text-white font-bold text-xl">{selectedNode.title}</h4>
-                      </div>
-                      <div className="space-y-2 text-sm">
-                        <div className="flex items-center gap-2 text-gray-300">
-                          <span className="text-blue-400">●</span>
-                          <span>Type: {selectedNode.subnodes ? 'Main Branch' : selectedNode.id === 'central' ? 'Central Node' : 'Sub-node'}</span>
-                        </div>
-                        {selectedNode.subnodes && (
-                          <div className="flex items-center gap-2 text-gray-300">
-                            <span className="text-blue-400">●</span>
-                            <span>Connected Nodes: {selectedNode.subnodes.length}</span>
-                          </div>
-                        )}
-                        <div className="flex items-center gap-2 text-gray-300">
-                          <span className="text-blue-400">●</span>
-                          <span>Status: Active</span>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {selectedNode.subnodes && (
-                      <div>
-                        <h5 className="text-gray-400 text-sm font-semibold mb-2">Connected Sub-nodes:</h5>
-                        <div className="space-y-2">
-                          {selectedNode.subnodes.map(sub => (
-                            <div 
-                              key={sub.id}
-                              className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-2 hover:bg-blue-500/20 transition-colors cursor-pointer"
-                              onClick={() => handleNodeClick(sub)}
-                            >
-                              <span className="text-white text-sm">{sub.title}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <div className="text-6xl mb-3 opacity-30">🎯</div>
-                    <p className="text-gray-400 text-sm">Click on any node to view details</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="bg-black/80 backdrop-blur-xl border border-blue-500/30 rounded-2xl p-6">
-                <h3 className="text-white text-lg font-semibold mb-4 flex items-center gap-2">
-                  <span className="text-2xl">📊</span>
-                  Mind Map Overview
-                </h3>
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center pb-3 border-b border-blue-500/20">
-                    <span className="text-gray-400 text-sm">Central Theme</span>
-                    <span className="text-white font-semibold text-sm">{mindMapData.central.title}</span>
-                  </div>
-                  <div className="flex justify-between items-center pb-3 border-b border-blue-500/20">
-                    <span className="text-gray-400 text-sm">Main Branches</span>
-                    <span className="text-blue-400 font-bold text-lg">{mindMapData.branches.length}</span>
-                  </div>
-                  <div className="flex justify-between items-center pb-3 border-b border-blue-500/20">
-                    <span className="text-gray-400 text-sm">Total Sub-nodes</span>
-                    <span className="text-purple-400 font-bold text-lg">
-                      {mindMapData.branches.reduce((acc, branch) => acc + branch.subnodes.length, 0)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center pb-3 border-b border-blue-500/20">
-                    <span className="text-gray-400 text-sm">Total Nodes</span>
-                    <span className="text-green-400 font-bold text-lg">
-                      {1 + mindMapData.branches.length + mindMapData.branches.reduce((acc, branch) => acc + branch.subnodes.length, 0)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center pb-3 border-b border-blue-500/20">
-                    <span className="text-gray-400 text-sm">Depth Levels</span>
-                    <span className="text-orange-400 font-bold text-lg">3</span>
-                  </div>
-                  
-                  <div className="pt-3">
-                    <h4 className="text-gray-400 text-xs font-semibold mb-2">Branch Distribution:</h4>
-                    <div className="space-y-2">
-                      {mindMapData.branches.map(branch => (
-                        <div key={branch.id} className="flex items-center gap-2">
-                          <span className="text-lg">{branch.icon}</span>
-                          <div className="flex-1 bg-black/50 rounded-full h-2 overflow-hidden">
-                            <div 
-                              className={`h-full bg-gradient-to-r ${branch.color} rounded-full transition-all duration-1000`}
-                              style={{ width: `${(branch.subnodes.length / 12) * 100}%` }}
-                            ></div>
-                          </div>
-                          <span className="text-white text-xs font-medium">{branch.subnodes.length}</span>
-                        </div>
-                      ))}
-                    </div>
+                    <button onClick={handleResetZoom} className="w-full bg-gradient-to-br from-blue-900/30 to-blue-950/30 hover:from-blue-900/50 hover:to-blue-950/50 border border-blue-500/30 hover:border-blue-500/50 text-blue-100 px-4 py-2 rounded-lg font-medium transition-all hover:scale-[1.02]">Reset View</button>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Legend */}
-            <div className="mt-6 bg-black/80 backdrop-blur-xl border border-blue-500/30 rounded-2xl p-6">
-              <h3 className="text-white text-lg font-semibold mb-4 flex items-center gap-2">
-                <span className="text-2xl">🎨</span>
-                Node Color Legend
-              </h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {mindMapData.branches.map(branch => (
-                  <div key={branch.id} className="flex items-center gap-3">
-                    <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${branch.color} border ${branch.borderColor} flex items-center justify-center shadow-lg ${branch.shadowColor}`}>
-                      <span className="text-xl">{branch.icon}</span>
-                    </div>
-                    <div>
-                      <p className="text-white font-medium text-sm">{branch.title}</p>
-                      <p className="text-gray-400 text-xs">{branch.subnodes.length} nodes</p>
-                    </div>
+                <div className="bg-gradient-to-br from-blue-900/20 to-blue-950/20 border border-blue-500/20 rounded-lg p-4">
+                  <h3 className="text-sm font-semibold text-blue-400 mb-3">Statistics</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between"><span className="text-blue-300/70">Main Branches:</span><span className="font-semibold text-cyan-400">{mindMapData.branches.length}</span></div>
+                    <div className="flex justify-between"><span className="text-blue-300/70">Sub-nodes:</span><span className="font-semibold text-cyan-400">{mindMapData.branches.reduce((sum, b) => sum + b.subnodes.length, 0)}</span></div>
+                    <div className="flex justify-between"><span className="text-blue-300/70">Total Nodes:</span><span className="font-semibold text-cyan-400">{1 + mindMapData.branches.length + mindMapData.branches.reduce((sum, b) => sum + b.subnodes.length, 0)}</span></div>
                   </div>
-                ))}
-              </div>
-            </div>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-blue-400 mb-3">Actions</h3>
+                  <div className="space-y-2">
+                    <button onClick={handleExport} className="w-full bg-gradient-to-br from-emerald-900/30 to-emerald-950/30 hover:from-emerald-900/50 hover:to-emerald-950/50 border border-emerald-500/30 hover:border-emerald-500/50 text-emerald-100 px-4 py-2 rounded-lg font-medium transition-all hover:scale-[1.02] hover:shadow-lg hover:shadow-emerald-500/20 flex items-center justify-center gap-2"><span>💾</span>Export as JSON</button>
+                    <button onClick={handleClearAll} className="w-full bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 px-4 py-2 rounded-lg font-medium transition-colors">Clear All</button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
+        <div ref={containerRef} className="flex-1 relative overflow-hidden bg-gradient-to-br from-black/10 to-blue-950/20 cursor-move" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
+          <canvas ref={canvasRef} className="absolute inset-0 pointer-events-none" style={{ width: '100%', height: '100%', transform: `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)`, transformOrigin: '0 0' }}/>
+          <div className="absolute inset-0 pointer-events-none" style={{ transform: `scale(${zoom}) translate(${panOffset.x / zoom}px, ${panOffset.y / zoom}px)`, transformOrigin: '0 0' }}>
+            {!mindMapData.central && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center max-w-md">
+                  <div className="text-6xl mb-4">🧠</div>
+                  <h2 className="text-2xl font-semibold text-white mb-2">Create Your Mind Map</h2>
+                  <p className="text-blue-200/70 mb-6">Start by creating a central node, then add branches and sub-nodes to organize your ideas visually.</p>
+                  <button onClick={() => setShowAddCentralModal(true)} className="pointer-events-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors inline-flex items-center gap-2"><span className="text-xl">+</span>Create Central Node</button>
+                </div>
+              </div>
+            )}
+            {mindMapData.central && (
+              <div className="absolute pointer-events-auto" style={{ left: `${mindMapData.central.x}%`, top: `${mindMapData.central.y}%`, transform: 'translate(-50%, -50%)' }}>
+                <div className={`bg-gradient-to-br from-blue-600 to-cyan-600 text-white px-8 py-4 rounded-xl shadow-lg border-2 border-blue-400 cursor-pointer transition-all hover:shadow-xl hover:shadow-blue-500/50 ${selectedNode?.id === 'central' ? 'ring-4 ring-blue-400' : ''}`} onClick={() => setSelectedNode({ id: 'central', type: 'central' })}>
+                  <div className="text-center font-semibold text-lg whitespace-nowrap">{mindMapData.central.title}</div>
+                </div>
+              </div>
+            )}
+            {mindMapData.branches.map((branch) => (
+              <div key={branch.id}>
+                <div className="absolute pointer-events-auto group" style={{ left: `${branch.x}%`, top: `${branch.y}%`, transform: 'translate(-50%, -50%)' }}>
+                  <div className={`bg-gradient-to-br ${branch.color} ${branch.textColor} px-6 py-3 rounded-lg shadow-lg ${branch.glow} border border-white/20 cursor-pointer transition-all hover:shadow-lg relative ${selectedNode?.id === branch.id ? 'ring-4 ring-blue-400' : ''}`} onClick={() => setSelectedNode({ id: branch.id, type: 'branch' })}>
+                    <div className="font-medium whitespace-nowrap">{branch.title}</div>
+                    {selectedNode?.id === branch.id && (<button onClick={(e) => { e.stopPropagation(); handleDeleteBranch(branch.id); }} className="absolute -top-2 -right-2 w-6 h-6 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>)}
+                  </div>
+                </div>
+                {branch.subnodes.map((subnode) => (
+                  <div key={subnode.id} className="absolute pointer-events-auto group" style={{ left: `${subnode.x}%`, top: `${subnode.y}%`, transform: 'translate(-50%, -50%)' }}>
+                    <div className="bg-blue-900/30 backdrop-blur-sm border border-blue-500/30 text-blue-100 px-4 py-2 rounded-md shadow-sm cursor-pointer transition-all hover:shadow-md hover:border-blue-500/50 relative" onClick={() => setSelectedNode({ id: subnode.id, type: 'subnode', branchId: branch.id })}>
+                      <div className="text-sm whitespace-nowrap">{subnode.title}</div>
+                      <button onClick={(e) => { e.stopPropagation(); handleDeleteSubnode(branch.id, subnode.id); }} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">×</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="absolute bottom-4 right-4 text-xs text-blue-300/50 pointer-events-none">Drag to pan • Scroll to zoom</div>
+        </div>
       </div>
+      {showAddCentralModal && (<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-gray-900/95 backdrop-blur-xl border border-blue-500/30 rounded-xl shadow-2xl max-w-md w-full p-6"><h3 className="text-xl font-semibold text-white mb-4">Create Central Node</h3><input type="text" value={newNodeTitle} onChange={(e) => setNewNodeTitle(e.target.value)} placeholder="Enter central topic..." className="w-full px-4 py-3 bg-black/50 border border-blue-500/30 text-white placeholder-blue-200/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4" autoFocus onKeyPress={(e) => e.key === 'Enter' && handleCreateCentral()}/><div className="flex gap-3"><button onClick={() => { setShowAddCentralModal(false); setNewNodeTitle(''); }} className="flex-1 px-4 py-2.5 bg-gray-700/50 hover:bg-gray-700 text-blue-100 rounded-lg font-medium transition-colors">Cancel</button><button onClick={handleCreateCentral} disabled={!newNodeTitle.trim()} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed">Create</button></div></div></div>)}
+      {showAddBranchModal && (<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-gray-900/95 backdrop-blur-xl border border-blue-500/30 rounded-xl shadow-2xl max-w-md w-full p-6"><h3 className="text-xl font-semibold text-white mb-4">Add Main Branch</h3><input type="text" value={newNodeTitle} onChange={(e) => setNewNodeTitle(e.target.value)} placeholder="Enter branch title..." className="w-full px-4 py-3 bg-black/50 border border-blue-500/30 text-white placeholder-blue-200/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4" autoFocus onKeyPress={(e) => e.key === 'Enter' && handleAddBranch()}/><div className="flex gap-3"><button onClick={() => { setShowAddBranchModal(false); setNewNodeTitle(''); }} className="flex-1 px-4 py-2.5 bg-gray-700/50 hover:bg-gray-700 text-blue-100 rounded-lg font-medium transition-colors">Cancel</button><button onClick={handleAddBranch} disabled={!newNodeTitle.trim()} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed">Add Branch</button></div></div></div>)}
+      {showAddSubnodeModal && (<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"><div className="bg-gray-900/95 backdrop-blur-xl border border-blue-500/30 rounded-xl shadow-2xl max-w-md w-full p-6"><h3 className="text-xl font-semibold text-white mb-4">Add Sub-node</h3><p className="text-sm text-blue-200/70 mb-3">Adding to: <span className="font-semibold text-cyan-400">{mindMapData.branches.find(b => b.id === parentBranchId)?.title}</span></p><input type="text" value={newSubnodeTitle} onChange={(e) => setNewSubnodeTitle(e.target.value)} placeholder="Enter sub-node title..." className="w-full px-4 py-3 bg-black/50 border border-blue-500/30 text-white placeholder-blue-200/50 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent mb-4" autoFocus onKeyPress={(e) => e.key === 'Enter' && handleAddSubnode()}/><div className="flex gap-3"><button onClick={() => { setShowAddSubnodeModal(false); setNewSubnodeTitle(''); setParentBranchId(null); }} className="flex-1 px-4 py-2.5 bg-gray-700/50 hover:bg-gray-700 text-blue-100 rounded-lg font-medium transition-colors">Cancel</button><button onClick={handleAddSubnode} disabled={!newSubnodeTitle.trim()} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-lg font-medium transition-all hover:scale-105 hover:shadow-lg hover:shadow-blue-500/50 disabled:opacity-50 disabled:cursor-not-allowed">Add Sub-node</button></div></div></div>)}
     </div>
+  </div>
   );
 };
 
