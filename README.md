@@ -9,14 +9,37 @@ A dynamic React website built with Vite and Tailwind CSS.
 - **Tailwind CSS** - Utility-first CSS framework for rapid UI development
 - **React Router DOM** - Client-side routing
 - **Axios** - HTTP client for API requests
+- **Clerk** - Authentication and user management
+
+## 🔐 Quick Start with Clerk Authentication
+
+This project is integrated with Clerk for authentication. To get started:
+
+1. **Get your Clerk API keys:**
+   - Sign up at [https://clerk.com](https://clerk.com)
+   - Create a new application
+   - Get your Publishable Key from the [API Keys page](https://dashboard.clerk.com/)
+
+2. **Add your keys to `.env`:**
+   ```bash
+   VITE_CLERK_PUBLISHABLE_KEY=pk_test_your_key_here
+   ```
+
+3. **Restart the dev server:**
+   ```bash
+   npm run dev
+   ```
+
+📚 **For detailed Clerk setup instructions, see [CLERK_SETUP.md](./CLERK_SETUP.md)**
 
 ## 📦 Installed Dependencies
 
 ### Main Dependencies
-- `react` - ^18.3.1
-- `react-dom` - ^18.3.1
-- `react-router-dom` - ^7.1.1
-- `axios` - ^1.7.9
+- `react` - ^19.1.1
+- `react-dom` - ^19.1.1
+- `react-router-dom` - ^7.9.4
+- `axios` - ^1.12.2
+- `@clerk/clerk-react` - Authentication SDK
 
 ### Dev Dependencies
 - `vite` - ^7.1.12
