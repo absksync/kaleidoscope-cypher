@@ -281,6 +281,11 @@ const LandingPage = () => {
                   )}
                 </div>
                 
+                <a href="/kai-chat" className="text-gray-300 hover:text-white transition-all duration-200 hover:scale-105 flex items-center gap-2">
+                  <span className="text-xl">🤖</span>
+                  KAI Chat
+                </a>
+                
                 <button className="text-gray-300 hover:text-white transition-all duration-200 hover:scale-105">
                   Contact sales
                 </button>

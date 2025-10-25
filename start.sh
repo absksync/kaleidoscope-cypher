@@ -42,12 +42,19 @@ else
 fi
 
 echo ""
-echo -e "${YELLOW}Starting Backend Server...${NC}"
+echo -e "${YELLOW}Starting Basic Backend Server (Port 5000)...${NC}"
 cd backend
 python3 humanoid_api.py &
 BACKEND_PID=$!
-echo -e "${GREEN}✓ Backend started (PID: $BACKEND_PID)${NC}"
+echo -e "${GREEN}✓ Basic Backend started (PID: $BACKEND_PID)${NC}"
 echo "  API: http://localhost:5000"
+
+echo ""
+echo -e "${YELLOW}Starting AI Backend Server (Port 8001)...${NC}"
+python3 kaleidoscope_unified_api.py &
+AI_BACKEND_PID=$!
+echo -e "${GREEN}✓ AI Backend started (PID: $AI_BACKEND_PID)${NC}"
+echo "  AI API: http://localhost:8001"
 
 cd ..
 sleep 2
@@ -61,17 +68,18 @@ echo "  App: http://localhost:5175"
 
 echo ""
 echo "=================================="
-echo -e "${GREEN}Both servers are running!${NC}"
+echo -e "${GREEN}All servers are running!${NC}"
 echo "=================================="
 echo ""
-echo "Frontend: http://localhost:5175"
-echo "Backend:  http://localhost:5000"
+echo "Frontend:    http://localhost:5175"
+echo "Backend:     http://localhost:5000"
+echo "AI Backend:  http://localhost:8001"
 echo ""
 echo "Press Ctrl+C to stop all servers"
 echo ""
 
-# Trap Ctrl+C and kill both processes
-trap "echo ''; echo 'Stopping servers...'; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT
+# Trap Ctrl+C and kill all processes
+trap "echo ''; echo 'Stopping servers...'; kill $BACKEND_PID $AI_BACKEND_PID $FRONTEND_PID 2>/dev/null; exit" INT
 
-# Wait for both processes
-wait $BACKEND_PID $FRONTEND_PID
+# Wait for all processes
+wait $BACKEND_PID $AI_BACKEND_PID $FRONTEND_PID

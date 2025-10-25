@@ -7,6 +7,7 @@ import {
   MindMapVisualization, 
   SWOTEvaluation 
 } from './components';
+import KAIChat from './components/KAIChat';
 
 function App() {
   return (
@@ -18,6 +19,7 @@ function App() {
         <Route path="/gamified-collaboration" element={<GamifiedCollaboration />} />
         <Route path="/mindmap-visualization" element={<MindMapVisualization />} />
         <Route path="/swot-evaluation" element={<SWOTEvaluation />} />
+        <Route path="/kai-chat" element={<KAIChat />} />
       </Routes>
     </Router>
   );
