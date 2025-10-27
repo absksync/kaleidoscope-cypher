@@ -15,6 +15,7 @@ from datetime import datetime
 from typing import List, Dict, Any
 import threading
 import time
+import os
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -22,8 +23,8 @@ app.config['SECRET_KEY'] = 'kaleidoscope-secret-2025'
 CORS(app, resources={r"/api/*": {"origins": "*"}})
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
-# MongoDB Configuration
-MONGO_URI = 'mongodb://localhost:27017/'
+# MongoDB Configuration - Use environment variable or fallback to localhost
+MONGO_URI = os.environ.get('MONGODB_URI', 'mongodb://localhost:27017/')
 DB_NAME = 'kaleidoscope_db'
 
 # Initialize MongoDB client
