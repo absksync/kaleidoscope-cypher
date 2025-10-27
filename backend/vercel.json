@@ -1,0 +1,22 @@
+{
+  "buildCommand": "pip install -r requirements.txt",
+  "devCommand": "python3 humanoid_api.py",
+  "installCommand": "pip install -r requirements.txt",
+  "functions": {
+    "api/**/*.py": {
+      "runtime": "python3.11"
+    },
+    "*.py": {
+      "runtime": "python3.11"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/humanoid_api.py"
+    }
+  ],
+  "env": {
+    "MONGODB_URI": "@mongodb-uri"
+  }
+}
