@@ -23,12 +23,15 @@
 4. [ ] Choose "Create Git Monorepo"
 5. [ ] Import `absksync/kaleidoscope-cypher` repository
 6. [ ] Set Root Directory to `./backend`
-7. [ ] Configure Environment Variables:
-   - [ ] `MONGODB_URI` = your MongoDB connection string
-   - [ ] `FLASK_ENV` = production
-8. [ ] Click "Deploy"
-9. [ ] Note the backend URL (e.g., https://your-project-api.vercel.app)
-10. [ ] Verify deployment succeeded (check Deployments tab)
+7. [ ] Click "Deploy" (skip Environment Variables for now)
+8. [ ] Note the backend URL (e.g., https://your-project-api.vercel.app)
+9. [ ] **IMPORTANT**: After deployment, add Environment Variables:
+   - Go to project Settings → Environment Variables
+   - [ ] Add `MONGODB_URI` = your MongoDB connection string
+   - [ ] Add `FLASK_ENV` = production
+10. [ ] Go to Deployments → Click latest deployment → Click "Redeploy"
+11. [ ] Wait for redeployment to complete
+12. [ ] Verify deployment at: https://your-project-api.vercel.app/api/health
 
 ## MongoDB Setup (If Not Done)
 1. [ ] Go to https://www.mongodb.com/cloud/atlas
