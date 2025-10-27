@@ -17,9 +17,5 @@
       "src": "/(.*)",
       "dest": "/api/index.py"
     }
-  ],
-  "env": {
-    "MONGODB_URI": "@MONGODB_URI",
-    "FLASK_ENV": "production"
-  }
+  ]
 }
